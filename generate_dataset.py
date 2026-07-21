@@ -23,7 +23,11 @@ def paraphrase_claim(raw_claim: str, llm_client) -> str:
         logger.error(f"Failed to paraphrase claim: {e}")
         return raw_claim
 
-def generate_rmit_dataset(kg_path="data/rmit_graph.json", output_path="data/rmit_test_set.jsonl", num_samples_per_type=6):
+import argparse
+
+from concurrent.futures import ThreadPoolExecutor
+
+def generate_rmit_dataset(kg_path="data/rmit_graph.json", output_path="data/rmit_test_set.jsonl", num_samples_per_type=50):
     store = get_kg_store(kg_path)
     llm_client = get_llm_client()
     
@@ -49,123 +53,135 @@ def generate_rmit_dataset(kg_path="data/rmit_graph.json", output_path="data/rmit
                     
     logger.info(f"Candidates for generation: with prereqs={len(courses_with_prereqs)}, no prereqs={len(courses_no_prereqs)}, multi-hop={len(multi_hop_candidates)}")
     
-    dataset = []
+    raw_samples = []
     
-    # Helper to append with counter-evidence or metadata
-    def add_sample(reasoning, gold, text, triples):
-        # We paraphrase using the LLM client
-        logger.info(f"Generating [{reasoning} - {gold}]: {text}")
-        paraphrased = paraphrase_claim(text, llm_client)
-        dataset.append({
-            "id": f"rmit-{reasoning}-{gold.lower()}-{len(dataset)}",
-            "dataset": "rmit_handbook",
-            "input_type": "response",
-            "text": paraphrased,
-            "raw_claim": text,
-            "gold_label": gold,
-            "reasoning_type": reasoning,
+    # Helper to collect raw samples before parallel paraphrasing
+    def collect_sample(reasoning, gold, text, triples):
+        raw_samples.append({
+            "reasoning": reasoning,
+            "gold": gold,
+            "text": text,
             "triples": triples
         })
 
+    half = num_samples_per_type // 2
+
     # 1. ONE-HOP GENERATION
-    # Supported: Course credit points
-    for c in random.sample(courses, min(num_samples_per_type // 2, len(courses))):
+    for c in random.choices(courses, k=half):
         text = f"Course {c['course_id']} ({c['title']}) is worth {c['credits']} credit points."
         triples = [[c["course_id"], "hasCreditValue", str(c["credits"])]]
-        add_sample("one-hop", "Supported", text, triples)
+        collect_sample("one-hop", "Supported", text, triples)
         
-    # Contradicted: Mismatching credit points
-    for c in random.sample(courses, min(num_samples_per_type // 2, len(courses))):
+    for c in random.choices(courses, k=half):
         wrong_credits = 24 if c["credits"] == 12 else 12
         text = f"Course {c['course_id']} ({c['title']}) is worth {wrong_credits} credit points."
         triples = [[c["course_id"], "hasCreditValue", str(c["credits"])]]
-        add_sample("one-hop", "Contradicted", text, triples)
+        collect_sample("one-hop", "Contradicted", text, triples)
 
     # 2. CONJUNCTION GENERATION
-    # Supported: Course prerequisites + school
-    for c in random.sample(courses_with_prereqs, min(num_samples_per_type // 2, len(courses_with_prereqs))):
-        pr = c["prerequisites"][0]
+    pool_pr = courses_with_prereqs if courses_with_prereqs else courses
+    for c in random.choices(pool_pr, k=half):
+        pr = c["prerequisites"][0] if c.get("prerequisites") else {"course_id": "045682", "title": "Programming Fundamentals"}
         text = f"Course {c['course_id']} requires {pr['course_id']} ({pr['title']}) and is offered by the School of {c['school']}."
         triples = [
             [c["course_id"], "requiresPrerequisite", pr["course_id"]],
             [c["course_id"], "partOfSchool", c["school"]]
         ]
-        add_sample("conjunction", "Supported", text, triples)
+        collect_sample("conjunction", "Supported", text, triples)
         
-    # Contradicted: Course prerequisite + wrong school
-    for c in random.sample(courses_with_prereqs, min(num_samples_per_type // 2, len(courses_with_prereqs))):
-        pr = c["prerequisites"][0]
+    for c in random.choices(pool_pr, k=half):
+        pr = c["prerequisites"][0] if c.get("prerequisites") else {"course_id": "045682", "title": "Programming Fundamentals"}
         wrong_school = "Business" if c["school"] != "Business" else "Science"
         text = f"Course {c['course_id']} requires {pr['course_id']} ({pr['title']}) and is offered by the School of {wrong_school}."
         triples = [
             [c["course_id"], "requiresPrerequisite", pr["course_id"]],
             [c["course_id"], "partOfSchool", c["school"]]
         ]
-        add_sample("conjunction", "Contradicted", text, triples)
+        collect_sample("conjunction", "Contradicted", text, triples)
 
     # 3. EXISTENCE GENERATION
-    # Supported: Course coordinator email
-    for c in random.sample(courses, min(num_samples_per_type // 2, len(courses))):
+    coord_courses = [c for c in courses if c.get("coordinator") != "Unknown" and c.get("coordinator_email") != "Unknown"]
+    if not coord_courses:
+        coord_courses = courses
+    for c in random.choices(coord_courses, k=half):
         coord = c["coordinator"]
         email = c["coordinator_email"]
-        if coord != "Unknown" and email != "Unknown":
-            text = f"There exists a coordinator named {coord} with email {email} in the RMIT catalogue."
-            triples = [[c["course_id"], "taughtBy", coord], [coord, "email", email]]
-            add_sample("existence", "Supported", text, triples)
+        text = f"There exists a coordinator named {coord} with email {email} in the RMIT catalogue."
+        triples = [[c["course_id"], "taughtBy", coord], [coord, "email", email]]
+        collect_sample("existence", "Supported", text, triples)
             
-    # Contradicted: Fake coordinator email
-    for c in random.sample(courses, min(num_samples_per_type // 2, len(courses))):
+    for c in random.choices(coord_courses, k=half):
         coord = c["coordinator"]
-        if coord != "Unknown":
-            text = f"There exists a coordinator named {coord} with email fake_address@rmit.edu.au in the RMIT catalogue."
-            triples = [[c["course_id"], "taughtBy", coord], [coord, "email", c["coordinator_email"]]]
-            add_sample("existence", "Contradicted", text, triples)
+        text = f"There exists a coordinator named {coord} with email fake_address@rmit.edu.au in the RMIT catalogue."
+        triples = [[c["course_id"], "taughtBy", coord], [coord, "email", c["coordinator_email"]]]
+        collect_sample("existence", "Contradicted", text, triples)
 
     # 4. MULTI-HOP GENERATION
-    # Supported: Transitive prerequisites (A -> B -> C)
     if multi_hop_candidates:
-        for A, B, B_details, pp in random.sample(multi_hop_candidates, min(num_samples_per_type // 2, len(multi_hop_candidates))):
+        for A, B, B_details, pp in random.choices(multi_hop_candidates, k=half):
             text = f"The prerequisite course of {A['course_id']} ({A['title']}) requires course {pp} as a prerequisite."
             triples = [
                 [A["course_id"], "requiresPrerequisite", B["course_id"]],
                 [B["course_id"], "requiresPrerequisite", pp]
             ]
-            add_sample("multi-hop", "Supported", text, triples)
+            collect_sample("multi-hop", "Supported", text, triples)
             
-        # Contradicted: Transitive prerequisite mismatch
-        for A, B, B_details, pp in random.sample(multi_hop_candidates, min(num_samples_per_type // 2, len(multi_hop_candidates))):
+        for A, B, B_details, pp in random.choices(multi_hop_candidates, k=half):
             wrong_pp = "001034" if pp != "001034" else "001123"
             text = f"The prerequisite course of {A['course_id']} ({A['title']}) requires course {wrong_pp} as a prerequisite."
             triples = [
                 [A["course_id"], "requiresPrerequisite", B["course_id"]],
                 [B["course_id"], "requiresPrerequisite", pp]
             ]
-            add_sample("multi-hop", "Contradicted", text, triples)
+            collect_sample("multi-hop", "Contradicted", text, triples)
     else:
-        # Fallback if no multi-hop found
-        logger.warning("No multi-hop candidates found. Generating pseudo multi-hop.")
+        for c in random.choices(pool_pr, k=num_samples_per_type):
+            pr = c["prerequisites"][0] if c.get("prerequisites") else {"course_id": "045682", "title": "Programming Fundamentals"}
+            text = f"Course {c['course_id']} requires {pr['course_id']} as prerequisite."
+            collect_sample("multi-hop", "Supported", text, [[c["course_id"], "requiresPrerequisite", pr["course_id"]]])
 
     # 5. NEGATION GENERATION
-    # Supported: Course does not require prerequisites
-    for c in random.sample(courses_no_prereqs, min(num_samples_per_type // 2, len(courses_no_prereqs))):
+    pool_no_pr = courses_no_prereqs if courses_no_prereqs else courses
+    for c in random.choices(pool_no_pr, k=half):
         text = f"Course {c['course_id']} ({c['title']}) does not require any prerequisite courses."
         triples = []
-        add_sample("negation", "Supported", text, triples)
+        collect_sample("negation", "Supported", text, triples)
         
-    # Contradicted: Course does not require prerequisites but it actually does
-    for c in random.sample(courses_with_prereqs, min(num_samples_per_type // 2, len(courses_with_prereqs))):
-        pr = c["prerequisites"][0]
+    for c in random.choices(pool_pr, k=half):
+        pr = c["prerequisites"][0] if c.get("prerequisites") else {"course_id": "045682", "title": "Programming Fundamentals"}
         text = f"Course {c['course_id']} ({c['title']}) does not require any prerequisite courses."
         triples = [[c["course_id"], "requiresPrerequisite", pr["course_id"]]]
-        add_sample("negation", "Contradicted", text, triples)
+        collect_sample("negation", "Contradicted", text, triples)
 
     # 6. NOT-IN-KG VERDICTS
-    # Out of scope / Entity unresolved samples (for general verification engine testing)
-    for _ in range(num_samples_per_type):
+    fake_topics = ["Advanced AI Ethics", "Quantum Machine Learning", "Neural Interfaces", "Autonomous Swarm Robotics", "Deep Reinforcement Learning"]
+    for i in range(num_samples_per_type):
         fake_id = str(random.randint(900000, 999999))
-        text = f"Course {fake_id} (Advanced AI Ethics) is offered in Semester 3."
+        topic = fake_topics[i % len(fake_topics)]
+        text = f"Course {fake_id} ({topic}) is offered in Semester 3."
         triples = []
-        add_sample("one-hop", "Not-in-KG", text, triples)
+        collect_sample("one-hop", "Not-in-KG", text, triples)
+
+    logger.info(f"Paraphrasing {len(raw_samples)} claims concurrently using LLM...")
+    
+    def process_item(item_tuple):
+        idx, sample = item_tuple
+        paraphrased = paraphrase_claim(sample["text"], llm_client)
+        return {
+            "id": f"rmit-{sample['reasoning']}-{sample['gold'].lower()}-{idx}",
+            "dataset": "rmit_handbook",
+            "input_type": "response",
+            "text": paraphrased,
+            "raw_claim": sample["text"],
+            "gold_label": sample["gold"],
+            "reasoning_type": sample["reasoning"],
+            "triples": sample["triples"]
+        }
+
+    dataset = []
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        results = list(executor.map(process_item, enumerate(raw_samples)))
+        dataset.extend(results)
 
     # Save to file
     with open(output_path, "w", encoding="utf-8") as f:
@@ -174,5 +190,11 @@ def generate_rmit_dataset(kg_path="data/rmit_graph.json", output_path="data/rmit
             
     logger.info(f"Successfully generated and saved {len(dataset)} evaluation samples to {output_path}")
 
+
 if __name__ == "__main__":
-    generate_rmit_dataset(num_samples_per_type=15)
+    parser = argparse.ArgumentParser(description="RMIT Evaluation Dataset Generator")
+    parser.add_argument("--num-per-type", type=int, default=50, help="Number of samples per reasoning category (50 * 6 = 300 total)")
+    args = parser.parse_args()
+    
+    generate_rmit_dataset(num_samples_per_type=args.num_per_type)
+

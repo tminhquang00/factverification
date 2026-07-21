@@ -39,9 +39,7 @@ The core codebase resides in the root directory:
 
 ## 3. Final Evaluation Summary
 
-| Dataset | Total Evaluated ($n$) | E2E Accuracy | 95% Confidence Interval | Coverage | Selective Accuracy |
-|---|---|:---:|:---:|:---:|:---:|
-| **RMIT Handbook** | 83 | **93.98%** | [87.95%, 98.80%] | 87.95% | **97.26%** |
+| **RMIT Handbook (MC271 Graph)** | 300 | **94.67%** | [92.00%, 97.00%] | 100.00% | **94.67%** |
 | **MetaQA (Multi-Hop)** | 100 | **73.33%** | [56.67%, 90.00%] | 10.00% | 33.33% |
 | **FactKG** | 200 | **66.00%** | [59.00%, 72.50%] | 79.00% | **83.54%** |
 | **CoDEx-S** | 150 | **43.33%** | [26.67%, 60.00%] | 53.33% | **50.00%** |

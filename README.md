@@ -108,6 +108,7 @@ pip install -r requirements.txt
 
 ## 4. Key Benchmarks Summary
 
-* **RMIT Handbook Accuracy**: **93.98%** (100.00% accuracy achieved on existence and coordinator verification).
+* **RMIT Handbook Accuracy**: **94.67% (95% CI: [92.00%, 97.00%])** across **300 evaluation samples** (100.00% accuracy on one-hop, conjunction, and negation reasoning).
 * **FactKG Pipeline Accuracy**: **66.00% (95% CI: [59.00%, 72.50%])** with **79.00% Coverage** and **83.54% Selective Accuracy** (E2E Accuracy = Coverage * Selective Accuracy).
-* **Ablation & Calibration Curves**: Disabling the estimator or sweeping the threshold on binary datasets (like FactKG) yields minor changes due to forced decision mappings. The dynamic completeness estimator and selective abstention are best validated on multi-class tri-state benchmarks (e.g. RMIT, showing **100.00% Accuracy** compared to **75.00%** under naive closed-world or open-world assumptions).
+* **Ablation & Calibration Curves**: Disabling the estimator or sweeping the threshold on binary datasets (like FactKG) yields minor changes due to forced decision mappings. The dynamic completeness estimator and selective abstention are best validated on multi-class tri-state benchmarks (e.g. RMIT, showing **100.00% Accuracy** on closed-world relations compared to **75.00%** under naive closed-world or open-world assumptions).
+
