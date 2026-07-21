@@ -1,0 +1,602 @@
+{
+  "Movie_M1": {
+    "course_id": "Movie_M1",
+    "title": "Movie_M1",
+    "prerequisites": [],
+    "credits": 12,
+    "school": "Science",
+    "coordinator": "Unknown",
+    "coordinator_email": "Unknown",
+    "starred_actors": [
+      "Actor_A2"
+    ],
+    "has_genre": [
+      "Genre_G2"
+    ],
+    "release_year": [
+      "1991"
+    ]
+  },
+  "Movie_M3": {
+    "course_id": "Movie_M3",
+    "title": "Movie_M3",
+    "prerequisites": [],
+    "credits": 12,
+    "school": "Science",
+    "coordinator": "Unknown",
+    "coordinator_email": "Unknown",
+    "starred_actors": [
+      "Actor_A4"
+    ],
+    "has_genre": [
+      "Genre_G4"
+    ],
+    "release_year": [
+      "1993"
+    ]
+  },
+  "Movie_M4": {
+    "course_id": "Movie_M4",
+    "title": "Movie_M4",
+    "prerequisites": [],
+    "credits": 12,
+    "school": "Science",
+    "coordinator": "Unknown",
+    "coordinator_email": "Unknown",
+    "directed_by": [
+      "Director_D5"
+    ],
+    "starred_actors": [
+      "Actor_A5"
+    ],
+    "release_year": [
+      "1994"
+    ]
+  },
+  "Movie_M5": {
+    "course_id": "Movie_M5",
+    "title": "Movie_M5",
+    "prerequisites": [],
+    "credits": 12,
+    "school": "Science",
+    "coordinator": "Unknown",
+    "coordinator_email": "Unknown",
+    "directed_by": [
+      "Director_D6"
+    ],
+    "starred_actors": [
+      "Actor_A6"
+    ],
+    "has_genre": [
+      "Genre_G1"
+    ],
+    "release_year": [
+      "1995"
+    ]
+  },
+  "Movie_M6": {
+    "course_id": "Movie_M6",
+    "title": "Movie_M6",
+    "prerequisites": [],
+    "credits": 12,
+    "school": "Science",
+    "coordinator": "Unknown",
+    "coordinator_email": "Unknown",
+    "directed_by": [
+      "Director_D7"
+    ],
+    "has_genre": [
+      "Genre_G2"
+    ],
+    "release_year": [
+      "1996"
+    ]
+  },
+  "Movie_M10": {
+    "course_id": "Movie_M10",
+    "title": "Movie_M10",
+    "prerequisites": [],
+    "credits": 12,
+    "school": "Science",
+    "coordinator": "Unknown",
+    "coordinator_email": "Unknown",
+    "directed_by": [
+      "Director_D1"
+    ],
+    "has_genre": [
+      "Genre_G1"
+    ]
+  },
+  "Movie_M11": {
+    "course_id": "Movie_M11",
+    "title": "Movie_M11",
+    "prerequisites": [],
+    "credits": 12,
+    "school": "Science",
+    "coordinator": "Unknown",
+    "coordinator_email": "Unknown",
+    "starred_actors": [
+      "Actor_A12"
+    ],
+    "has_genre": [
+      "Genre_G2"
+    ],
+    "release_year": [
+      "1991"
+    ]
+  },
+  "Movie_M12": {
+    "course_id": "Movie_M12",
+    "title": "Movie_M12",
+    "prerequisites": [],
+    "credits": 12,
+    "school": "Science",
+    "coordinator": "Unknown",
+    "coordinator_email": "Unknown",
+    "directed_by": [
+      "Director_D3"
+    ],
+    "has_genre": [
+      "Genre_G3"
+    ],
+    "release_year": [
+      "1992"
+    ]
+  },
+  "Movie_M14": {
+    "course_id": "Movie_M14",
+    "title": "Movie_M14",
+    "prerequisites": [],
+    "credits": 12,
+    "school": "Science",
+    "coordinator": "Unknown",
+    "coordinator_email": "Unknown",
+    "directed_by": [
+      "Director_D5"
+    ],
+    "starred_actors": [
+      "Actor_A15"
+    ],
+    "release_year": [
+      "1994"
+    ]
+  },
+  "Movie_M15": {
+    "course_id": "Movie_M15",
+    "title": "Movie_M15",
+    "prerequisites": [],
+    "credits": 12,
+    "school": "Science",
+    "coordinator": "Unknown",
+    "coordinator_email": "Unknown",
+    "directed_by": [
+      "Director_D6"
+    ],
+    "has_genre": [
+      "Genre_G1"
+    ],
+    "release_year": [
+      "1995"
+    ]
+  },
+  "Movie_M16": {
+    "course_id": "Movie_M16",
+    "title": "Movie_M16",
+    "prerequisites": [],
+    "credits": 12,
+    "school": "Science",
+    "coordinator": "Unknown",
+    "coordinator_email": "Unknown",
+    "directed_by": [
+      "Director_D7"
+    ],
+    "has_genre": [
+      "Genre_G2"
+    ],
+    "release_year": [
+      "1996"
+    ]
+  },
+  "Movie_M17": {
+    "course_id": "Movie_M17",
+    "title": "Movie_M17",
+    "prerequisites": [],
+    "credits": 12,
+    "school": "Science",
+    "coordinator": "Unknown",
+    "coordinator_email": "Unknown",
+    "has_genre": [
+      "Genre_G3"
+    ],
+    "release_year": [
+      "1997"
+    ]
+  },
+  "Movie_M20": {
+    "course_id": "Movie_M20",
+    "title": "Movie_M20",
+    "prerequisites": [],
+    "credits": 12,
+    "school": "Science",
+    "coordinator": "Unknown",
+    "coordinator_email": "Unknown",
+    "directed_by": [
+      "Director_D1"
+    ],
+    "starred_actors": [
+      "Actor_A1"
+    ],
+    "has_genre": [
+      "Genre_G1"
+    ]
+  },
+  "Movie_M21": {
+    "course_id": "Movie_M21",
+    "title": "Movie_M21",
+    "prerequisites": [],
+    "credits": 12,
+    "school": "Science",
+    "coordinator": "Unknown",
+    "coordinator_email": "Unknown",
+    "starred_actors": [
+      "Actor_A2"
+    ],
+    "has_genre": [
+      "Genre_G2"
+    ],
+    "release_year": [
+      "1991"
+    ]
+  },
+  "Movie_M22": {
+    "course_id": "Movie_M22",
+    "title": "Movie_M22",
+    "prerequisites": [],
+    "credits": 12,
+    "school": "Science",
+    "coordinator": "Unknown",
+    "coordinator_email": "Unknown",
+    "directed_by": [
+      "Director_D3"
+    ],
+    "starred_actors": [
+      "Actor_A3"
+    ],
+    "has_genre": [
+      "Genre_G3"
+    ],
+    "release_year": [
+      "1992"
+    ]
+  },
+  "Movie_M24": {
+    "course_id": "Movie_M24",
+    "title": "Movie_M24",
+    "prerequisites": [],
+    "credits": 12,
+    "school": "Science",
+    "coordinator": "Unknown",
+    "coordinator_email": "Unknown",
+    "directed_by": [
+      "Director_D5"
+    ],
+    "starred_actors": [
+      "Actor_A5"
+    ],
+    "release_year": [
+      "1994"
+    ]
+  },
+  "Movie_M25": {
+    "course_id": "Movie_M25",
+    "title": "Movie_M25",
+    "prerequisites": [],
+    "credits": 12,
+    "school": "Science",
+    "coordinator": "Unknown",
+    "coordinator_email": "Unknown",
+    "directed_by": [
+      "Director_D6"
+    ],
+    "starred_actors": [
+      "Actor_A6"
+    ],
+    "has_genre": [
+      "Genre_G1"
+    ],
+    "release_year": [
+      "1995"
+    ]
+  },
+  "Movie_M26": {
+    "course_id": "Movie_M26",
+    "title": "Movie_M26",
+    "prerequisites": [],
+    "credits": 12,
+    "school": "Science",
+    "coordinator": "Unknown",
+    "coordinator_email": "Unknown",
+    "directed_by": [
+      "Director_D7"
+    ],
+    "has_genre": [
+      "Genre_G2"
+    ],
+    "release_year": [
+      "1996"
+    ]
+  },
+  "Movie_M27": {
+    "course_id": "Movie_M27",
+    "title": "Movie_M27",
+    "prerequisites": [],
+    "credits": 12,
+    "school": "Science",
+    "coordinator": "Unknown",
+    "coordinator_email": "Unknown",
+    "has_genre": [
+      "Genre_G3"
+    ],
+    "release_year": [
+      "1997"
+    ]
+  },
+  "Movie_M28": {
+    "course_id": "Movie_M28",
+    "title": "Movie_M28",
+    "prerequisites": [],
+    "credits": 12,
+    "school": "Science",
+    "coordinator": "Unknown",
+    "coordinator_email": "Unknown",
+    "directed_by": [
+      "Director_D9"
+    ],
+    "starred_actors": [
+      "Actor_A9"
+    ],
+    "has_genre": [
+      "Genre_G4"
+    ],
+    "release_year": [
+      "1998"
+    ]
+  },
+  "Movie_M29": {
+    "course_id": "Movie_M29",
+    "title": "Movie_M29",
+    "prerequisites": [],
+    "credits": 12,
+    "school": "Science",
+    "coordinator": "Unknown",
+    "coordinator_email": "Unknown",
+    "directed_by": [
+      "Director_D10"
+    ],
+    "starred_actors": [
+      "Actor_A10"
+    ]
+  },
+  "Movie_M30": {
+    "course_id": "Movie_M30",
+    "title": "Movie_M30",
+    "prerequisites": [],
+    "credits": 12,
+    "school": "Science",
+    "coordinator": "Unknown",
+    "coordinator_email": "Unknown",
+    "directed_by": [
+      "Director_D1"
+    ],
+    "has_genre": [
+      "Genre_G1"
+    ]
+  },
+  "Movie_M33": {
+    "course_id": "Movie_M33",
+    "title": "Movie_M33",
+    "prerequisites": [],
+    "credits": 12,
+    "school": "Science",
+    "coordinator": "Unknown",
+    "coordinator_email": "Unknown",
+    "starred_actors": [
+      "Actor_A14"
+    ],
+    "has_genre": [
+      "Genre_G4"
+    ],
+    "release_year": [
+      "1993"
+    ]
+  },
+  "Movie_M34": {
+    "course_id": "Movie_M34",
+    "title": "Movie_M34",
+    "prerequisites": [],
+    "credits": 12,
+    "school": "Science",
+    "coordinator": "Unknown",
+    "coordinator_email": "Unknown",
+    "directed_by": [
+      "Director_D5"
+    ],
+    "starred_actors": [
+      "Actor_A15"
+    ],
+    "release_year": [
+      "1994"
+    ]
+  },
+  "Movie_M36": {
+    "course_id": "Movie_M36",
+    "title": "Movie_M36",
+    "prerequisites": [],
+    "credits": 12,
+    "school": "Science",
+    "coordinator": "Unknown",
+    "coordinator_email": "Unknown",
+    "directed_by": [
+      "Director_D7"
+    ],
+    "has_genre": [
+      "Genre_G2"
+    ],
+    "release_year": [
+      "1996"
+    ]
+  },
+  "Movie_M38": {
+    "course_id": "Movie_M38",
+    "title": "Movie_M38",
+    "prerequisites": [],
+    "credits": 12,
+    "school": "Science",
+    "coordinator": "Unknown",
+    "coordinator_email": "Unknown",
+    "directed_by": [
+      "Director_D9"
+    ],
+    "starred_actors": [
+      "Actor_A19"
+    ],
+    "has_genre": [
+      "Genre_G4"
+    ],
+    "release_year": [
+      "1998"
+    ]
+  },
+  "Movie_M39": {
+    "course_id": "Movie_M39",
+    "title": "Movie_M39",
+    "prerequisites": [],
+    "credits": 12,
+    "school": "Science",
+    "coordinator": "Unknown",
+    "coordinator_email": "Unknown",
+    "directed_by": [
+      "Director_D10"
+    ],
+    "starred_actors": [
+      "Actor_A20"
+    ]
+  },
+  "Movie_M40": {
+    "course_id": "Movie_M40",
+    "title": "Movie_M40",
+    "prerequisites": [],
+    "credits": 12,
+    "school": "Science",
+    "coordinator": "Unknown",
+    "coordinator_email": "Unknown",
+    "directed_by": [
+      "Director_D1"
+    ],
+    "starred_actors": [
+      "Actor_A1"
+    ],
+    "has_genre": [
+      "Genre_G1"
+    ]
+  },
+  "Movie_M43": {
+    "course_id": "Movie_M43",
+    "title": "Movie_M43",
+    "prerequisites": [],
+    "credits": 12,
+    "school": "Science",
+    "coordinator": "Unknown",
+    "coordinator_email": "Unknown",
+    "starred_actors": [
+      "Actor_A4"
+    ],
+    "has_genre": [
+      "Genre_G4"
+    ],
+    "release_year": [
+      "1993"
+    ]
+  },
+  "Movie_M44": {
+    "course_id": "Movie_M44",
+    "title": "Movie_M44",
+    "prerequisites": [],
+    "credits": 12,
+    "school": "Science",
+    "coordinator": "Unknown",
+    "coordinator_email": "Unknown",
+    "directed_by": [
+      "Director_D5"
+    ],
+    "starred_actors": [
+      "Actor_A5"
+    ],
+    "release_year": [
+      "1994"
+    ]
+  },
+  "Movie_M46": {
+    "course_id": "Movie_M46",
+    "title": "Movie_M46",
+    "prerequisites": [],
+    "credits": 12,
+    "school": "Science",
+    "coordinator": "Unknown",
+    "coordinator_email": "Unknown",
+    "directed_by": [
+      "Director_D7"
+    ],
+    "has_genre": [
+      "Genre_G2"
+    ],
+    "release_year": [
+      "1996"
+    ]
+  },
+  "Movie_M47": {
+    "course_id": "Movie_M47",
+    "title": "Movie_M47",
+    "prerequisites": [],
+    "credits": 12,
+    "school": "Science",
+    "coordinator": "Unknown",
+    "coordinator_email": "Unknown",
+    "has_genre": [
+      "Genre_G3"
+    ],
+    "release_year": [
+      "1997"
+    ]
+  },
+  "Movie_M49": {
+    "course_id": "Movie_M49",
+    "title": "Movie_M49",
+    "prerequisites": [],
+    "credits": 12,
+    "school": "Science",
+    "coordinator": "Unknown",
+    "coordinator_email": "Unknown",
+    "directed_by": [
+      "Director_D10"
+    ],
+    "starred_actors": [
+      "Actor_A10"
+    ]
+  },
+  "Movie_M50": {
+    "course_id": "Movie_M50",
+    "title": "Movie_M50",
+    "prerequisites": [],
+    "credits": 12,
+    "school": "Science",
+    "coordinator": "Unknown",
+    "coordinator_email": "Unknown",
+    "directed_by": [
+      "Director_D1"
+    ],
+    "has_genre": [
+      "Genre_G1"
+    ]
+  }
+}

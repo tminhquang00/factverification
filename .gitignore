@@ -1,0 +1,29 @@
+# Environment & Secret variables
+.env
+.env.*
+
+# Python Virtual Environment
+.venv/
+venv/
+ENV/
+env/
+
+# Python Cache & Bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.python-version
+
+# IDE & Editor Settings
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Runtime Log Files & Caches
+*.log
+data/cache/
+output/
+scratch/debug_linking_output.txt
+scratch/factkg_errors_log.json
