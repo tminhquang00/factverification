@@ -41,13 +41,14 @@ graph TD
 Two datasets were used for benchmarking:
 
 ### 1. RMIT Handbook KG Dataset (Private/Domain-Specific)
--   **Size**: 83 evaluation samples (balanced across reasoning types).
+-   **Size**: 300 evaluation samples (balanced across 6 reasoning types).
+-   **Target Curriculum**: RMIT Master of Artificial Intelligence (MC271) program and its 50-course prerequisite closure graph.
 -   **Reasoning Types Covered**:
-    -   *One-hop* (29 samples): Verifies direct relations (e.g., credit points, course schools).
-    -   *Conjunction* (14 samples): Verifies multi-attribute statements joined by "and".
-    -   *Existence* (12 samples): Verifies if a coordinator or email exists in the catalogue.
-    -   *Multi-hop* (14 samples): Verifies prerequisite chains (A requires B, which requires C).
-    -   *Negation* (14 samples): Verifies statements claiming a course has no prerequisites.
+    -   *One-hop* (100 samples): Verifies direct relations (e.g., credit points, course schools, Not-in-KG out-of-scope queries).
+    -   *Conjunction* (50 samples): Verifies multi-attribute statements joined by "and".
+    -   *Existence* (50 samples): Verifies if a coordinator or email exists in the catalogue.
+    -   *Multi-hop* (50 samples): Verifies prerequisite chains (A requires B, which requires C).
+    -   *Negation* (50 samples): Verifies statements claiming a course has no prerequisites.
 
 ### 2. FactKG Dataset (Public/Generic)
 -   **Size**: 9,041 test items (100 representative samples used for evaluation).
@@ -58,16 +59,16 @@ Two datasets were used for benchmarking:
 ## IV. Evaluation Results & Benchmarks
 
 ### 1. E2E Pipeline Performance on RMIT Handbook
-The pipeline achieved **95.18% overall accuracy** on the expanded RMIT Course Handbook dataset.
+The pipeline achieved **94.67% overall accuracy** on the expanded RMIT MC271 Course Handbook dataset (300 items).
 
 | Reasoning Type | Count | Accuracy | Result Details |
 | :--- | :---: | :---: | :--- |
-| **One-hop** | 29 | **100.00%** | Perfect entity linking and attribute verification. |
-| **Conjunction** | 14 | **100.00%** | Successfully verified multi-attribute constraints. |
-| **Existence** | 12 | **100.00%** | Successfully mapped coordinator existence to directory lookups. |
-| **Negation** | 14 | **100.00%** | Successfully identified "no prerequisite" claims against empty lists. |
-| **Multi-hop** | 14 | **71.43%** | Resolved multi-hop paths but sensitive to complex parenthetical parsing formats. |
-| **Overall** | **83** | **95.18%** | **High-fidelity domain verification.** |
+| **One-hop** | 100 | **100.00%** | Perfect entity linking and attribute verification (includes Not-in-KG). |
+| **Conjunction** | 50 | **100.00%** | Successfully verified multi-attribute constraints. |
+| **Existence** | 50 | **98.00%** | Successfully mapped coordinator existence to directory lookups. |
+| **Negation** | 50 | **100.00%** | Successfully identified "no prerequisite" claims against empty lists. |
+| **Multi-hop** | 50 | **70.00%** | Resolved multi-hop paths via graph traversal engine. |
+| **Overall** | **300** | **94.67%** | **High-fidelity domain verification.** |
 
 ### 2. Comparative Benchmarking on Public Datasets (FactKG & FEVER)
 We compared three methods on the FactKG and FEVER datasets using 200 samples each:
