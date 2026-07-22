@@ -1,6 +1,6 @@
 # Knowledge Graph (KG) Fact-Verification Framework
 
-This repository implements an end-to-end, tri-state, claim-level factual verification pipeline. The system validates natural language assertions against a structured local Knowledge Graph (such as a university catalog or DBpedia triple graphs) using local, quantized LLMs.
+This repository implements an end-to-end, tri-state, claim-level factual verification pipeline. The system validates natural language assertions against structured Knowledge Graphs using local or remote LLMs, dynamic world-assumption routing, and calibrated selective abstention.
 
 ---
 
@@ -22,19 +22,19 @@ The fact-verification pipeline runs in four core stages:
                                    ▼
               ┌────────────────────────────────────────┐
               │  Stage 3: Entity & Relation Resolving  │
-              │  (Synonym-Aware & Isolated Match Index)│
+              │  (L0: Oracle, L1: Bi-Encoder, L2: Token)│
               └────────────────────┬───────────────────┘
                                    │
                                    ▼
               ┌────────────────────────────────────────┐
               │  Stage 4: Factual Graph Verification   │
-              │  (Negations, Path-Checks, Existences)  │
+              │  (Offline C(R) Profiles & Path Checks) │
               └────────────────────┬───────────────────┘
                                    │
                                    ▼
               ┌────────────────────────────────────────┐
               │    Selective Abstention Calibration    │
-              │ (Completeness estimation C(R) vs theta)│
+              │ (Continuous NLI Margin Tie-Breaker)    │
               └────────────────────┬───────────────────┘
                                    │
                                    ▼
@@ -45,78 +45,75 @@ The fact-verification pipeline runs in four core stages:
 ```
 
 1. **Draft Response Generation**: Collects natural language answers from an LLM.
-2. **Claim Decomposition (Stage 2)**: Breaks draft responses into atomic factual tuples `(Subject, Relation, Object)`. A double-run extraction agreement step filters out small LLM extraction hallucinations.
-3. **Entity Resolution & Relation Mapping (Stage 3)**: Normalizes and links entity strings to database nodes using token overlap matching. Unclassified relations are mapped dynamically to matching KG predicates using synonym resolvers.
-4. **Semantic Graph Verification (Stage 4)**: Evaluates triples against logic rules (prerequisites, negation checks, email/coordinator verification, existence checks).
-5. **Selective Abstention**: Adjusts verdicts between `Contradicted` and `Not-in-KG` based on the relation density / completeness and selective confidence threshold $\theta$.
+2. **Claim Decomposition (Stage 2)**: Breaks draft responses into atomic factual tuples `(Subject, Relation, Object)` using self-consistency filtering.
+3. **Entity Resolution & Relation Mapping (Stage 3)**: Dispatches linking across explicit reporting axes (**L0**: Gold IDs, **L1**: Bi-encoder, **L2**: Heuristics).
+4. **Semantic Graph Verification (Stage 4)**: Evaluates triples against logic rules using offline background completeness profiles (`data/completeness_profiles/`).
+5. **Selective Abstention**: Adjusts verdicts between `Contradicted` and `Not-in-KG` based on continuous tie-broken confidence score $S_{\text{cal}}$.
 
 ---
 
-## 2. Project Directory Structure
+## 2. Core Claim Ladder
+
+*   **C1 (World-Assumption Routing)**: Per-relation world-assumption routing dominates fixed CWA and fixed OWA on Knowledge Graphs with heterogeneous relation density.
+*   **C2 (Selective Signal Integration)**: Completeness-derived structural features carry selective-prediction signal complementary to semantic NLI entailment.
+*   **C3 (Tri-State Protocol Utility)**: Binary fact-verification benchmarks structurally cannot evaluate abstention-capable verifiers; a tri-state protocol over public KGs can.
+*   **C4 (Institutional Catalog Deployment)**: Post-hoc claim-level verification is deployable on closed institutional catalogs with a controlled false-contradiction rate.
+
+---
+
+## 3. Project Directory Structure
 
 * `verification_pipeline.py`: Core implementation of the 4-stage fact-verification pipeline.
 * `kg_store.py`: Local thread-safe catalog storage containing graph density estimation and relation lookup logic.
-* `eval_rmit.py`: Evaluates pipeline correctness on the RMIT Course Handbook dataset.
-* `eval_harness.py`: Benchmark evaluation harness for public datasets. Measures accuracy with **95% Bootstrap Confidence Intervals**, **Coverage (In-Scope Claims)**, and **Selective Accuracy** on covered subsets.
-* `adapters/`: Data normalization loaders for `FactKG`, `FEVER`, `CoDEx`, and `MetaQA`.
-* `scripts/`: Production evaluation sweeps, fast local testing, and meta-confidence calibration scripts.
-* `legacy/`: Version 2 legacy framework files.
+* `adapters/`: Data normalization loaders and adapters (`kg_adapter.py`, `factkg_adapter.py`, `codex_adapter.py`, `metaqa_adapter.py`, `catalog2_adapter.py`).
+* `data/completeness_profiles/`: Offline background completeness profiles serialized per dataset.
+* `scripts/`: Diagnostic and evaluation scripts:
+  * `run_phase0_diagnostics.py`: E0.1 Shuffled-KG control, E0.2 Chance floors, E0.3 Denominator audit.
+  * `generate_completeness_profiles.py`: Background profile generator.
+  * `run_revised_experiments.py`: E2 Routing, E3 Denominator, E4 Threshold sweep, E5 Meta-confidence.
+  * `generate_tristate_benchmarks.py`: Generates `CoDEx-S-Tri` and `MetaQA-Tri` benchmarks.
+  * `evaluate_binary_trap.py`: Quantifies penalized abstentions on FactKG vs tri-state benchmarks.
+  * `evaluate_baselines.py`: Evaluates baseline models across all datasets.
 * `docs/`: Comprehensive project documentation index ([docs/README.md](file:///c:/Users/Admin/Desktop/crawler/docs/README.md)):
-  * `docs/rmit_dataset_creation.md`: Complete process guide for creating the RMIT Course Handbook Dataset.
-  * `docs/architecture/`: Pipeline design (`design.md`), expert review (`system_expert_review.md`), and system breakdown (`system_explained_v3.md`).
+  * `docs/architecture/`: Pipeline design (`design.md`) and expert review (`system_expert_review.md`).
   * `docs/benchmarks/`: Benchmark evaluation results (`research_report.md`) and calibration report (`calibration_report.md`).
-  * `docs/assets/`: Figures and plots (`risk_coverage_curves.png`, `score_distributions.png`).
   * `docs/walkthrough.md`: Getting started guide and rerun instructions.
 
 ---
 
-## 3. Getting Started
+## 4. Execution Guidelines
 
-### Installation
-Activate the local Python virtual environment:
+Always execute scripts using the local virtual environment Python executable per `AGENTS.md`:
+
 ```powershell
-.venv\Scripts\activate
+# Run Phase 0 Diagnostics
+& .venv\Scripts\python.exe scripts/run_phase0_diagnostics.py
+
+# Build Offline Background Completeness Profiles
+& .venv\Scripts\python.exe scripts/generate_completeness_profiles.py
+
+# Generate Tri-State Benchmark Datasets
+& .venv\Scripts\python.exe scripts/generate_tristate_benchmarks.py
+
+# Run Core Claim Experiments (E2-E5)
+& .venv\Scripts\python.exe scripts/run_revised_experiments.py
+
+# Quantify Binary Benchmark Trap (E7)
+& .venv\Scripts\python.exe scripts/evaluate_binary_trap.py
+
+# Evaluate Baseline Suite (E9)
+& .venv\Scripts\python.exe scripts/evaluate_baselines.py
 ```
-
-Install requirements:
-```powershell
-pip install -r requirements.txt
-```
-
-### Running Verification & Evaluations
-
-* **Quick System Evaluation**:
-  ```powershell
-  & .venv\Scripts\python.exe scripts\run_quick_eval.py
-  ```
-
-* **RMIT Handbook Verification**:
-  ```powershell
-  & .venv\Scripts\python.exe eval_rmit.py
-  ```
-
-* **FactKG Baseline (Context LLM)**:
-  ```powershell
-  & .venv\Scripts\python.exe eval_harness.py --dataset factkg --method context_llm --limit 200
-  ```
-
-* **FactKG Pipeline Verification**:
-  ```powershell
-  & .venv\Scripts\python.exe eval_harness.py --dataset factkg --method pipeline --limit 200
-  ```
 
 ---
 
-## 4. Key Benchmarks & Experiments Summary
+## 5. Summary of Benchmark Results
 
-* **RMIT Handbook Domain Accuracy**: **95.00% (95% CI: [92.33%, 97.33%])** across **300 evaluation samples** (285/300 correct; 100.00% accuracy on one-hop, conjunction, and negation reasoning).
-* **Multi-Model Scaled Benchmarks ($n=500$)**:
-  * **azure-4.1-mini**: FactKG **81.00% E2E Accuracy** (74.33% Selective Accuracy @ 52.20% Coverage), CoDEx-S **37.20%**, MetaQA **37.90%**.
-  * **azure-5-mini**: FactKG **79.60% E2E Accuracy** (75.68% Selective Accuracy @ 51.80% Coverage), CoDEx-S **37.60%**, MetaQA **40.64%**.
-  * **google/gemma-4-e4b** (Local LM Studio): FactKG **80.00% E2E Accuracy** (87.22% Selective Accuracy @ 36.00% Coverage), CoDEx-S **36.60%**, MetaQA **36.53%**.
-* **Staged Pipeline Experiments ($n=500$)**:
-  * **Exp 1 (Oracle Linking Upper Bound)**: FactKG **80.00% E2E Accuracy** (71.76% Selective Accuracy @ 52.40% Coverage; 100% linking precision on direct triples).
-  * **Exp 2 (Neural Entity/Relation Linking)**: Bi-encoder vector candidate retrieval (`SentenceTransformer` `all-MiniLM-L6-v2`) on CoDEx-S (**37.60%**).
-  * **Exp 3 (Multi-Hop Decontextualization & CoVe)**: Factored sub-claim decomposition resolving intermediate bridge entities on MetaQA (**37.90%**).
-  * **Exp 4 (Continuous Score Calibration & Smoothing)**: Continuous sigmoid-smoothed confidence score margins on FactKG (**81.40% E2E Accuracy**, **76.06% Selective Accuracy** @ 51.80% Coverage), eliminating discrete confidence=1.0 mass ties.
-
+| LLM Engine | Dataset | Sample Size ($n$) | Linking Axis | E2E Accuracy | 95% Confidence Interval | Coverage | Selective Accuracy |
+|:---|:---|:---:|:---:|:---:|:---:|:---:|:---:|
+| **azure-4.1-mini** | **RMIT Handbook** | 300 | **L1** | **95.00%** | [92.33%, 97.33%] | 100.00% | **95.00%** |
+| **azure-4.1-mini** | **Catalog2** | 200 | **L1** | **92.50%** | [88.50%, 96.00%] | 100.00% | **92.50%** |
+| **azure-4.1-mini** | **FactKG** | 500 | **L0** | **80.00%** | [76.20%, 83.60%] | 52.40% | **71.76%** |
+| **azure-4.1-mini** | **FactKG** | 500 | **L1** | **81.00%** | [77.40%, 84.40%] | 52.20% | **74.33%** |
+| **azure-4.1-mini** | **CoDEx-S** | 500 | **L1** | **37.20%** | [33.00%, 41.40%] | 100.00% | **37.20%** |
+| **azure-4.1-mini** | **MetaQA** | 219 | **L1** | **37.90%** | [31.50%, 44.30%] | 100.00% | **37.90%** |

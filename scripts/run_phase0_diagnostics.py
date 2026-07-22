@@ -11,16 +11,16 @@ from verification_pipeline import VerificationPipeline
 from adapters.factkg_adapter import FactKGAdapter
 from adapters.codex_adapter import CoDExAdapter
 from adapters.metaqa_adapter import MetaQAAdapter
+from adapters.catalog2_adapter import Catalog2Adapter
 from eval_harness import compute_metrics, run_pipeline_verification
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("phase0_diagnostics")
 
-def run_e01_shuffled_kg(dataset_name, adapter, pipeline, limit=100):
+def run_e01_shuffled_kg(dataset_name, adapter, pipeline, limit=500):
     logger.info(f"Running E0.1 Shuffled-KG Control for {dataset_name.upper()} (limit={limit})...")
     data = adapter.load_data()[:limit]
     
-    # Collect all triples and permute object values per relation
     all_triples = []
     for item in data:
         all_triples.extend(item.get("triples", []))
@@ -32,7 +32,6 @@ def run_e01_shuffled_kg(dataset_name, adapter, pipeline, limit=100):
     for r in rel_to_objects:
         random.shuffle(rel_to_objects[r])
         
-    # Build shuffled data
     rel_counters = {r: 0 for r in rel_to_objects}
     predictions = []
     gold_labels = []
@@ -74,18 +73,14 @@ def run_e02_chance_floors(data, dataset_name):
     if n == 0:
         return {}
         
-    # Majority class baseline
     from collections import Counter
     counts = Counter(golds)
     maj_label = counts.most_common(1)[0][0]
     maj_acc = counts[maj_label] / n
     
-    # Stratified random baseline
     classes = list(counts.keys())
     probs = [counts[c] / n for c in classes]
     strat_acc = sum(p ** 2 for p in probs)
-    
-    # Uniform random baseline
     uniform_acc = 1.0 / len(classes) if classes else 0.0
     
     return {
@@ -97,26 +92,41 @@ def run_e02_chance_floors(data, dataset_name):
         "uniform_random_accuracy": uniform_acc
     }
 
-def run_e03_denominator_audit(dataset_name, adapter, pipeline, limit=100):
+def run_e03_denominator_audit(dataset_name, adapter, pipeline, limit=500):
     data = adapter.load_data()[:limit]
     denominators = []
     completeness_scores = []
+    sample_logs = []
     
-    for item in data:
+    for idx, item in enumerate(data):
         triples = item.get("triples", [])
-        if dataset_name == "factkg":
-            num_entities = len(set([t[0] for t in triples] + [t[2] for t in triples]))
+        if dataset_name in ["factkg", "codex", "metaqa"]:
+            num_entities = len(set([t[0] for t in triples if len(t) > 0] + [t[2] for t in triples if len(t) > 2]))
             denom = max(1, num_entities)
         else:
-            denom = len(pipeline.store.courses) if hasattr(pipeline.store, "courses") else 50
+            denom = len(pipeline.store.courses) if hasattr(pipeline, "store") and hasattr(pipeline.store, "courses") else 50
+        
+        comp = adapter.completeness(triples[0][1]) if triples and len(triples[0]) > 1 and hasattr(adapter, "completeness") else 0.95
         denominators.append(denom)
-        completeness_scores.append(0.95 if dataset_name != "rmit" else 0.85)
+        completeness_scores.append(comp)
+
+        sample_logs.append({
+            "sample_id": item.get("id", f"{dataset_name}-{idx}"),
+            "denominator": denom,
+            "completeness_score": comp
+        })
+
+    # Log per-sample details to artifact
+    os.makedirs("output/diagnostics", exist_ok=True)
+    with open(f"output/diagnostics/{dataset_name}_denominator_log.json", "w", encoding="utf-8") as f:
+        json.dump(sample_logs, f, indent=2)
         
     return {
         "mean_denominator": float(np.mean(denominators)),
         "min_denominator": int(np.min(denominators)),
         "max_denominator": int(np.max(denominators)),
-        "mean_completeness": float(np.mean(completeness_scores))
+        "mean_completeness": float(np.mean(completeness_scores)),
+        "log_artifact": f"output/diagnostics/{dataset_name}_denominator_log.json"
     }
 
 def main():
@@ -125,40 +135,45 @@ def main():
     
     results = {}
     
-    # FactKG
+    # Adapters & Pipelines
     factkg_adapter = FactKGAdapter()
     factkg_pipeline = VerificationPipeline()
-    factkg_data = factkg_adapter.load_data()[:100]
+    factkg_data = factkg_adapter.load_data()[:500]
     
-    # CoDEx
     codex_adapter = CoDExAdapter()
     codex_pipeline = VerificationPipeline(kg_path="data/codex_graph.json")
-    codex_data = codex_adapter.load_data()[:100]
+    codex_data = codex_adapter.load_data()[:500]
     
-    # MetaQA
     metaqa_adapter = MetaQAAdapter()
     metaqa_pipeline = VerificationPipeline(kg_path="data/metaqa_graph.json")
-    metaqa_data = metaqa_adapter.load_data()[:100]
+    metaqa_data = metaqa_adapter.load_data()[:219]
+
+    cat2_adapter = Catalog2Adapter()
+    cat2_pipeline = VerificationPipeline(kg_path="data/catalog2_graph.json")
+    cat2_data = cat2_adapter.load_data()[:200]
     
     # E0.1 Shuffled-KG
     results["e01_shuffled_kg"] = {
-        "factkg": run_e01_shuffled_kg("factkg", factkg_adapter, factkg_pipeline, limit=100),
-        "codex": run_e01_shuffled_kg("codex", codex_adapter, codex_pipeline, limit=100),
-        "metaqa": run_e01_shuffled_kg("metaqa", metaqa_adapter, metaqa_pipeline, limit=100)
+        "factkg": run_e01_shuffled_kg("factkg", factkg_adapter, factkg_pipeline, limit=500),
+        "codex": run_e01_shuffled_kg("codex", codex_adapter, codex_pipeline, limit=500),
+        "metaqa": run_e01_shuffled_kg("metaqa", metaqa_adapter, metaqa_pipeline, limit=219),
+        "catalog2": run_e01_shuffled_kg("catalog2", cat2_adapter, cat2_pipeline, limit=200)
     }
     
     # E0.2 Chance Floors
     results["e02_chance_floors"] = {
         "factkg": run_e02_chance_floors(factkg_data, "factkg"),
         "codex": run_e02_chance_floors(codex_data, "codex"),
-        "metaqa": run_e02_chance_floors(metaqa_data, "metaqa")
+        "metaqa": run_e02_chance_floors(metaqa_data, "metaqa"),
+        "catalog2": run_e02_chance_floors(cat2_data, "catalog2")
     }
     
     # E0.3 Denominator Audit
     results["e03_denominator_audit"] = {
-        "factkg": run_e03_denominator_audit("factkg", factkg_adapter, factkg_pipeline, limit=100),
-        "codex": run_e03_denominator_audit("codex", codex_adapter, codex_pipeline, limit=100),
-        "metaqa": run_e03_denominator_audit("metaqa", metaqa_adapter, metaqa_pipeline, limit=100)
+        "factkg": run_e03_denominator_audit("factkg", factkg_adapter, factkg_pipeline, limit=500),
+        "codex": run_e03_denominator_audit("codex", codex_adapter, codex_pipeline, limit=500),
+        "metaqa": run_e03_denominator_audit("metaqa", metaqa_adapter, metaqa_pipeline, limit=219),
+        "catalog2": run_e03_denominator_audit("catalog2", cat2_adapter, cat2_pipeline, limit=200)
     }
     
     with open("output/diagnostics/phase0_diagnostics_results.json", "w", encoding="utf-8") as f:

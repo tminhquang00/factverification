@@ -31,5 +31,23 @@ def main():
             metaqa_data = json.load(f)
         build_offline_completeness_profile("metaqa", metaqa_data, "data/completeness_profiles/metaqa.json")
 
+    # 4. Catalog2 Graph
+    if os.path.exists("data/catalog2_graph.json"):
+        with open("data/catalog2_graph.json", "r", encoding="utf-8") as f:
+            cat2_data = json.load(f)
+        build_offline_completeness_profile("catalog2", cat2_data, "data/completeness_profiles/catalog2.json")
+
+    # 5. FactKG default profile
+    factkg_profile = {
+        "capital": 0.95,
+        "birthPlace": 0.90,
+        "founded": 0.85,
+        "office": 0.90,
+        "type": 0.95
+    }
+    with open("data/completeness_profiles/factkg.json", "w", encoding="utf-8") as f:
+        json.dump(factkg_profile, f, indent=2)
+
+
 if __name__ == "__main__":
     main()

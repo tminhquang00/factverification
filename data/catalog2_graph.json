@@ -1,0 +1,1367 @@
+{
+  "MED101": {
+    "name": "Clinical Pharmacology 1",
+    "credits": 6,
+    "offered_terms": [
+      "Semester 1",
+      "Semester 2"
+    ],
+    "prerequisites": [],
+    "taught_by": [
+      "Dr. Staff_1"
+    ]
+  },
+  "MED102": {
+    "name": "Clinical Pharmacology 2",
+    "credits": 12,
+    "offered_terms": [
+      "Semester 1",
+      "Semester 2"
+    ],
+    "prerequisites": [
+      "MED101"
+    ],
+    "taught_by": [
+      "Dr. Staff_2"
+    ]
+  },
+  "MED103": {
+    "name": "Clinical Pharmacology 3",
+    "credits": 6,
+    "offered_terms": [
+      "Semester 1"
+    ],
+    "prerequisites": [
+      "MED102"
+    ],
+    "taught_by": [
+      "Dr. Staff_3"
+    ]
+  },
+  "MED104": {
+    "name": "Clinical Pharmacology 4",
+    "credits": 12,
+    "offered_terms": [
+      "Semester 1",
+      "Semester 2"
+    ],
+    "prerequisites": [
+      "MED103"
+    ],
+    "taught_by": [
+      "Dr. Staff_4"
+    ]
+  },
+  "MED105": {
+    "name": "Clinical Pharmacology 5",
+    "credits": 6,
+    "offered_terms": [
+      "Semester 1",
+      "Semester 2"
+    ],
+    "prerequisites": [
+      "MED104"
+    ],
+    "taught_by": [
+      "Dr. Staff_5"
+    ]
+  },
+  "MED106": {
+    "name": "Clinical Pharmacology 6",
+    "credits": 12,
+    "offered_terms": [
+      "Semester 1"
+    ],
+    "prerequisites": [
+      "MED105"
+    ],
+    "taught_by": [
+      "Dr. Staff_6"
+    ]
+  },
+  "MED107": {
+    "name": "Clinical Pharmacology 7",
+    "credits": 6,
+    "offered_terms": [
+      "Semester 1",
+      "Semester 2"
+    ],
+    "prerequisites": [
+      "MED106"
+    ],
+    "taught_by": [
+      "Dr. Staff_7"
+    ]
+  },
+  "MED108": {
+    "name": "Clinical Pharmacology 8",
+    "credits": 12,
+    "offered_terms": [
+      "Semester 1",
+      "Semester 2"
+    ],
+    "prerequisites": [
+      "MED107"
+    ],
+    "taught_by": [
+      "Dr. Staff_8"
+    ]
+  },
+  "MED109": {
+    "name": "Clinical Pharmacology 9",
+    "credits": 6,
+    "offered_terms": [
+      "Semester 1"
+    ],
+    "prerequisites": [
+      "MED108"
+    ],
+    "taught_by": [
+      "Dr. Staff_9"
+    ]
+  },
+  "MED110": {
+    "name": "Clinical Pharmacology 10",
+    "credits": 12,
+    "offered_terms": [
+      "Semester 1",
+      "Semester 2"
+    ],
+    "prerequisites": [
+      "MED109"
+    ],
+    "taught_by": [
+      "Dr. Staff_0"
+    ]
+  },
+  "MED111": {
+    "name": "Clinical Pharmacology 11",
+    "credits": 6,
+    "offered_terms": [
+      "Semester 1",
+      "Semester 2"
+    ],
+    "prerequisites": [
+      "MED110"
+    ],
+    "taught_by": [
+      "Dr. Staff_1"
+    ]
+  },
+  "MED112": {
+    "name": "Clinical Pharmacology 12",
+    "credits": 12,
+    "offered_terms": [
+      "Semester 1"
+    ],
+    "prerequisites": [
+      "MED111"
+    ],
+    "taught_by": [
+      "Dr. Staff_2"
+    ]
+  },
+  "MED113": {
+    "name": "Clinical Pharmacology 13",
+    "credits": 6,
+    "offered_terms": [
+      "Semester 1",
+      "Semester 2"
+    ],
+    "prerequisites": [
+      "MED112"
+    ],
+    "taught_by": [
+      "Dr. Staff_3"
+    ]
+  },
+  "MED114": {
+    "name": "Clinical Pharmacology 14",
+    "credits": 12,
+    "offered_terms": [
+      "Semester 1",
+      "Semester 2"
+    ],
+    "prerequisites": [
+      "MED113"
+    ],
+    "taught_by": [
+      "Dr. Staff_4"
+    ]
+  },
+  "MED115": {
+    "name": "Clinical Pharmacology 15",
+    "credits": 6,
+    "offered_terms": [
+      "Semester 1"
+    ],
+    "prerequisites": [
+      "MED114"
+    ],
+    "taught_by": [
+      "Dr. Staff_5"
+    ]
+  },
+  "MED116": {
+    "name": "Clinical Pharmacology 16",
+    "credits": 12,
+    "offered_terms": [
+      "Semester 1",
+      "Semester 2"
+    ],
+    "prerequisites": [
+      "MED115"
+    ],
+    "taught_by": [
+      "Dr. Staff_6"
+    ]
+  },
+  "MED117": {
+    "name": "Clinical Pharmacology 17",
+    "credits": 6,
+    "offered_terms": [
+      "Semester 1",
+      "Semester 2"
+    ],
+    "prerequisites": [
+      "MED116"
+    ],
+    "taught_by": [
+      "Dr. Staff_7"
+    ]
+  },
+  "MED118": {
+    "name": "Clinical Pharmacology 18",
+    "credits": 12,
+    "offered_terms": [
+      "Semester 1"
+    ],
+    "prerequisites": [
+      "MED117"
+    ],
+    "taught_by": [
+      "Dr. Staff_8"
+    ]
+  },
+  "MED119": {
+    "name": "Clinical Pharmacology 19",
+    "credits": 6,
+    "offered_terms": [
+      "Semester 1",
+      "Semester 2"
+    ],
+    "prerequisites": [
+      "MED118"
+    ],
+    "taught_by": [
+      "Dr. Staff_9"
+    ]
+  },
+  "MED120": {
+    "name": "Clinical Pharmacology 20",
+    "credits": 12,
+    "offered_terms": [
+      "Semester 1",
+      "Semester 2"
+    ],
+    "prerequisites": [
+      "MED119"
+    ],
+    "taught_by": [
+      "Dr. Staff_0"
+    ]
+  },
+  "MED121": {
+    "name": "Clinical Pharmacology 21",
+    "credits": 6,
+    "offered_terms": [
+      "Semester 1"
+    ],
+    "prerequisites": [
+      "MED120"
+    ],
+    "taught_by": [
+      "Dr. Staff_1"
+    ]
+  },
+  "MED122": {
+    "name": "Clinical Pharmacology 22",
+    "credits": 12,
+    "offered_terms": [
+      "Semester 1",
+      "Semester 2"
+    ],
+    "prerequisites": [
+      "MED121"
+    ],
+    "taught_by": [
+      "Dr. Staff_2"
+    ]
+  },
+  "MED123": {
+    "name": "Clinical Pharmacology 23",
+    "credits": 6,
+    "offered_terms": [
+      "Semester 1",
+      "Semester 2"
+    ],
+    "prerequisites": [
+      "MED122"
+    ],
+    "taught_by": [
+      "Dr. Staff_3"
+    ]
+  },
+  "MED124": {
+    "name": "Clinical Pharmacology 24",
+    "credits": 12,
+    "offered_terms": [
+      "Semester 1"
+    ],
+    "prerequisites": [
+      "MED123"
+    ],
+    "taught_by": [
+      "Dr. Staff_4"
+    ]
+  },
+  "MED125": {
+    "name": "Clinical Pharmacology 25",
+    "credits": 6,
+    "offered_terms": [
+      "Semester 1",
+      "Semester 2"
+    ],
+    "prerequisites": [
+      "MED124"
+    ],
+    "taught_by": [
+      "Dr. Staff_5"
+    ]
+  },
+  "MED126": {
+    "name": "Clinical Pharmacology 26",
+    "credits": 12,
+    "offered_terms": [
+      "Semester 1",
+      "Semester 2"
+    ],
+    "prerequisites": [
+      "MED125"
+    ],
+    "taught_by": [
+      "Dr. Staff_6"
+    ]
+  },
+  "MED127": {
+    "name": "Clinical Pharmacology 27",
+    "credits": 6,
+    "offered_terms": [
+      "Semester 1"
+    ],
+    "prerequisites": [
+      "MED126"
+    ],
+    "taught_by": [
+      "Dr. Staff_7"
+    ]
+  },
+  "MED128": {
+    "name": "Clinical Pharmacology 28",
+    "credits": 12,
+    "offered_terms": [
+      "Semester 1",
+      "Semester 2"
+    ],
+    "prerequisites": [
+      "MED127"
+    ],
+    "taught_by": [
+      "Dr. Staff_8"
+    ]
+  },
+  "MED129": {
+    "name": "Clinical Pharmacology 29",
+    "credits": 6,
+    "offered_terms": [
+      "Semester 1",
+      "Semester 2"
+    ],
+    "prerequisites": [
+      "MED128"
+    ],
+    "taught_by": [
+      "Dr. Staff_9"
+    ]
+  },
+  "MED130": {
+    "name": "Clinical Pharmacology 30",
+    "credits": 12,
+    "offered_terms": [
+      "Semester 1"
+    ],
+    "prerequisites": [
+      "MED129"
+    ],
+    "taught_by": [
+      "Dr. Staff_0"
+    ]
+  },
+  "MED131": {
+    "name": "Clinical Pharmacology 31",
+    "credits": 6,
+    "offered_terms": [
+      "Semester 1",
+      "Semester 2"
+    ],
+    "prerequisites": [
+      "MED130"
+    ],
+    "taught_by": [
+      "Dr. Staff_1"
+    ]
+  },
+  "MED132": {
+    "name": "Clinical Pharmacology 32",
+    "credits": 12,
+    "offered_terms": [
+      "Semester 1",
+      "Semester 2"
+    ],
+    "prerequisites": [
+      "MED131"
+    ],
+    "taught_by": [
+      "Dr. Staff_2"
+    ]
+  },
+  "MED133": {
+    "name": "Clinical Pharmacology 33",
+    "credits": 6,
+    "offered_terms": [
+      "Semester 1"
+    ],
+    "prerequisites": [
+      "MED132"
+    ],
+    "taught_by": [
+      "Dr. Staff_3"
+    ]
+  },
+  "MED134": {
+    "name": "Clinical Pharmacology 34",
+    "credits": 12,
+    "offered_terms": [
+      "Semester 1",
+      "Semester 2"
+    ],
+    "prerequisites": [
+      "MED133"
+    ],
+    "taught_by": [
+      "Dr. Staff_4"
+    ]
+  },
+  "MED135": {
+    "name": "Clinical Pharmacology 35",
+    "credits": 6,
+    "offered_terms": [
+      "Semester 1",
+      "Semester 2"
+    ],
+    "prerequisites": [
+      "MED134"
+    ],
+    "taught_by": [
+      "Dr. Staff_5"
+    ]
+  },
+  "MED136": {
+    "name": "Clinical Pharmacology 36",
+    "credits": 12,
+    "offered_terms": [
+      "Semester 1"
+    ],
+    "prerequisites": [
+      "MED135"
+    ],
+    "taught_by": [
+      "Dr. Staff_6"
+    ]
+  },
+  "MED137": {
+    "name": "Clinical Pharmacology 37",
+    "credits": 6,
+    "offered_terms": [
+      "Semester 1",
+      "Semester 2"
+    ],
+    "prerequisites": [
+      "MED136"
+    ],
+    "taught_by": [
+      "Dr. Staff_7"
+    ]
+  },
+  "MED138": {
+    "name": "Clinical Pharmacology 38",
+    "credits": 12,
+    "offered_terms": [
+      "Semester 1",
+      "Semester 2"
+    ],
+    "prerequisites": [
+      "MED137"
+    ],
+    "taught_by": [
+      "Dr. Staff_8"
+    ]
+  },
+  "MED139": {
+    "name": "Clinical Pharmacology 39",
+    "credits": 6,
+    "offered_terms": [
+      "Semester 1"
+    ],
+    "prerequisites": [
+      "MED138"
+    ],
+    "taught_by": [
+      "Dr. Staff_9"
+    ]
+  },
+  "MED140": {
+    "name": "Clinical Pharmacology 40",
+    "credits": 12,
+    "offered_terms": [
+      "Semester 1",
+      "Semester 2"
+    ],
+    "prerequisites": [
+      "MED139"
+    ],
+    "taught_by": [
+      "Dr. Staff_0"
+    ]
+  },
+  "MED141": {
+    "name": "Clinical Pharmacology 41",
+    "credits": 6,
+    "offered_terms": [
+      "Semester 1",
+      "Semester 2"
+    ],
+    "prerequisites": [
+      "MED140"
+    ],
+    "taught_by": [
+      "Dr. Staff_1"
+    ]
+  },
+  "MED142": {
+    "name": "Clinical Pharmacology 42",
+    "credits": 12,
+    "offered_terms": [
+      "Semester 1"
+    ],
+    "prerequisites": [
+      "MED141"
+    ],
+    "taught_by": [
+      "Dr. Staff_2"
+    ]
+  },
+  "MED143": {
+    "name": "Clinical Pharmacology 43",
+    "credits": 6,
+    "offered_terms": [
+      "Semester 1",
+      "Semester 2"
+    ],
+    "prerequisites": [
+      "MED142"
+    ],
+    "taught_by": [
+      "Dr. Staff_3"
+    ]
+  },
+  "MED144": {
+    "name": "Clinical Pharmacology 44",
+    "credits": 12,
+    "offered_terms": [
+      "Semester 1",
+      "Semester 2"
+    ],
+    "prerequisites": [
+      "MED143"
+    ],
+    "taught_by": [
+      "Dr. Staff_4"
+    ]
+  },
+  "MED145": {
+    "name": "Clinical Pharmacology 45",
+    "credits": 6,
+    "offered_terms": [
+      "Semester 1"
+    ],
+    "prerequisites": [
+      "MED144"
+    ],
+    "taught_by": [
+      "Dr. Staff_5"
+    ]
+  },
+  "MED146": {
+    "name": "Clinical Pharmacology 46",
+    "credits": 12,
+    "offered_terms": [
+      "Semester 1",
+      "Semester 2"
+    ],
+    "prerequisites": [
+      "MED145"
+    ],
+    "taught_by": [
+      "Dr. Staff_6"
+    ]
+  },
+  "MED147": {
+    "name": "Clinical Pharmacology 47",
+    "credits": 6,
+    "offered_terms": [
+      "Semester 1",
+      "Semester 2"
+    ],
+    "prerequisites": [
+      "MED146"
+    ],
+    "taught_by": [
+      "Dr. Staff_7"
+    ]
+  },
+  "MED148": {
+    "name": "Clinical Pharmacology 48",
+    "credits": 12,
+    "offered_terms": [
+      "Semester 1"
+    ],
+    "prerequisites": [
+      "MED147"
+    ],
+    "taught_by": [
+      "Dr. Staff_8"
+    ]
+  },
+  "MED149": {
+    "name": "Clinical Pharmacology 49",
+    "credits": 6,
+    "offered_terms": [
+      "Semester 1",
+      "Semester 2"
+    ],
+    "prerequisites": [
+      "MED148"
+    ],
+    "taught_by": [
+      "Dr. Staff_9"
+    ]
+  },
+  "MED150": {
+    "name": "Clinical Pharmacology 50",
+    "credits": 12,
+    "offered_terms": [
+      "Semester 1",
+      "Semester 2"
+    ],
+    "prerequisites": [
+      "MED149"
+    ],
+    "taught_by": [
+      "Dr. Staff_0"
+    ]
+  },
+  "MED151": {
+    "name": "Clinical Pharmacology 51",
+    "credits": 6,
+    "offered_terms": [
+      "Semester 1"
+    ],
+    "prerequisites": [
+      "MED150"
+    ],
+    "taught_by": [
+      "Dr. Staff_1"
+    ]
+  },
+  "MED152": {
+    "name": "Clinical Pharmacology 52",
+    "credits": 12,
+    "offered_terms": [
+      "Semester 1",
+      "Semester 2"
+    ],
+    "prerequisites": [
+      "MED151"
+    ],
+    "taught_by": [
+      "Dr. Staff_2"
+    ]
+  },
+  "MED153": {
+    "name": "Clinical Pharmacology 53",
+    "credits": 6,
+    "offered_terms": [
+      "Semester 1",
+      "Semester 2"
+    ],
+    "prerequisites": [
+      "MED152"
+    ],
+    "taught_by": [
+      "Dr. Staff_3"
+    ]
+  },
+  "MED154": {
+    "name": "Clinical Pharmacology 54",
+    "credits": 12,
+    "offered_terms": [
+      "Semester 1"
+    ],
+    "prerequisites": [
+      "MED153"
+    ],
+    "taught_by": [
+      "Dr. Staff_4"
+    ]
+  },
+  "MED155": {
+    "name": "Clinical Pharmacology 55",
+    "credits": 6,
+    "offered_terms": [
+      "Semester 1",
+      "Semester 2"
+    ],
+    "prerequisites": [
+      "MED154"
+    ],
+    "taught_by": [
+      "Dr. Staff_5"
+    ]
+  },
+  "MED156": {
+    "name": "Clinical Pharmacology 56",
+    "credits": 12,
+    "offered_terms": [
+      "Semester 1",
+      "Semester 2"
+    ],
+    "prerequisites": [
+      "MED155"
+    ],
+    "taught_by": [
+      "Dr. Staff_6"
+    ]
+  },
+  "MED157": {
+    "name": "Clinical Pharmacology 57",
+    "credits": 6,
+    "offered_terms": [
+      "Semester 1"
+    ],
+    "prerequisites": [
+      "MED156"
+    ],
+    "taught_by": [
+      "Dr. Staff_7"
+    ]
+  },
+  "MED158": {
+    "name": "Clinical Pharmacology 58",
+    "credits": 12,
+    "offered_terms": [
+      "Semester 1",
+      "Semester 2"
+    ],
+    "prerequisites": [
+      "MED157"
+    ],
+    "taught_by": [
+      "Dr. Staff_8"
+    ]
+  },
+  "MED159": {
+    "name": "Clinical Pharmacology 59",
+    "credits": 6,
+    "offered_terms": [
+      "Semester 1",
+      "Semester 2"
+    ],
+    "prerequisites": [
+      "MED158"
+    ],
+    "taught_by": [
+      "Dr. Staff_9"
+    ]
+  },
+  "MED160": {
+    "name": "Clinical Pharmacology 60",
+    "credits": 12,
+    "offered_terms": [
+      "Semester 1"
+    ],
+    "prerequisites": [
+      "MED159"
+    ],
+    "taught_by": [
+      "Dr. Staff_0"
+    ]
+  },
+  "MED161": {
+    "name": "Clinical Pharmacology 61",
+    "credits": 6,
+    "offered_terms": [
+      "Semester 1",
+      "Semester 2"
+    ],
+    "prerequisites": [
+      "MED160"
+    ],
+    "taught_by": [
+      "Dr. Staff_1"
+    ]
+  },
+  "MED162": {
+    "name": "Clinical Pharmacology 62",
+    "credits": 12,
+    "offered_terms": [
+      "Semester 1",
+      "Semester 2"
+    ],
+    "prerequisites": [
+      "MED161"
+    ],
+    "taught_by": [
+      "Dr. Staff_2"
+    ]
+  },
+  "MED163": {
+    "name": "Clinical Pharmacology 63",
+    "credits": 6,
+    "offered_terms": [
+      "Semester 1"
+    ],
+    "prerequisites": [
+      "MED162"
+    ],
+    "taught_by": [
+      "Dr. Staff_3"
+    ]
+  },
+  "MED164": {
+    "name": "Clinical Pharmacology 64",
+    "credits": 12,
+    "offered_terms": [
+      "Semester 1",
+      "Semester 2"
+    ],
+    "prerequisites": [
+      "MED163"
+    ],
+    "taught_by": [
+      "Dr. Staff_4"
+    ]
+  },
+  "MED165": {
+    "name": "Clinical Pharmacology 65",
+    "credits": 6,
+    "offered_terms": [
+      "Semester 1",
+      "Semester 2"
+    ],
+    "prerequisites": [
+      "MED164"
+    ],
+    "taught_by": [
+      "Dr. Staff_5"
+    ]
+  },
+  "MED166": {
+    "name": "Clinical Pharmacology 66",
+    "credits": 12,
+    "offered_terms": [
+      "Semester 1"
+    ],
+    "prerequisites": [
+      "MED165"
+    ],
+    "taught_by": [
+      "Dr. Staff_6"
+    ]
+  },
+  "MED167": {
+    "name": "Clinical Pharmacology 67",
+    "credits": 6,
+    "offered_terms": [
+      "Semester 1",
+      "Semester 2"
+    ],
+    "prerequisites": [
+      "MED166"
+    ],
+    "taught_by": [
+      "Dr. Staff_7"
+    ]
+  },
+  "MED168": {
+    "name": "Clinical Pharmacology 68",
+    "credits": 12,
+    "offered_terms": [
+      "Semester 1",
+      "Semester 2"
+    ],
+    "prerequisites": [
+      "MED167"
+    ],
+    "taught_by": [
+      "Dr. Staff_8"
+    ]
+  },
+  "MED169": {
+    "name": "Clinical Pharmacology 69",
+    "credits": 6,
+    "offered_terms": [
+      "Semester 1"
+    ],
+    "prerequisites": [
+      "MED168"
+    ],
+    "taught_by": [
+      "Dr. Staff_9"
+    ]
+  },
+  "MED170": {
+    "name": "Clinical Pharmacology 70",
+    "credits": 12,
+    "offered_terms": [
+      "Semester 1",
+      "Semester 2"
+    ],
+    "prerequisites": [
+      "MED169"
+    ],
+    "taught_by": [
+      "Dr. Staff_0"
+    ]
+  },
+  "MED171": {
+    "name": "Clinical Pharmacology 71",
+    "credits": 6,
+    "offered_terms": [
+      "Semester 1",
+      "Semester 2"
+    ],
+    "prerequisites": [
+      "MED170"
+    ],
+    "taught_by": [
+      "Dr. Staff_1"
+    ]
+  },
+  "MED172": {
+    "name": "Clinical Pharmacology 72",
+    "credits": 12,
+    "offered_terms": [
+      "Semester 1"
+    ],
+    "prerequisites": [
+      "MED171"
+    ],
+    "taught_by": [
+      "Dr. Staff_2"
+    ]
+  },
+  "MED173": {
+    "name": "Clinical Pharmacology 73",
+    "credits": 6,
+    "offered_terms": [
+      "Semester 1",
+      "Semester 2"
+    ],
+    "prerequisites": [
+      "MED172"
+    ],
+    "taught_by": [
+      "Dr. Staff_3"
+    ]
+  },
+  "MED174": {
+    "name": "Clinical Pharmacology 74",
+    "credits": 12,
+    "offered_terms": [
+      "Semester 1",
+      "Semester 2"
+    ],
+    "prerequisites": [
+      "MED173"
+    ],
+    "taught_by": [
+      "Dr. Staff_4"
+    ]
+  },
+  "MED175": {
+    "name": "Clinical Pharmacology 75",
+    "credits": 6,
+    "offered_terms": [
+      "Semester 1"
+    ],
+    "prerequisites": [
+      "MED174"
+    ],
+    "taught_by": [
+      "Dr. Staff_5"
+    ]
+  },
+  "MED176": {
+    "name": "Clinical Pharmacology 76",
+    "credits": 12,
+    "offered_terms": [
+      "Semester 1",
+      "Semester 2"
+    ],
+    "prerequisites": [
+      "MED175"
+    ],
+    "taught_by": [
+      "Dr. Staff_6"
+    ]
+  },
+  "MED177": {
+    "name": "Clinical Pharmacology 77",
+    "credits": 6,
+    "offered_terms": [
+      "Semester 1",
+      "Semester 2"
+    ],
+    "prerequisites": [
+      "MED176"
+    ],
+    "taught_by": [
+      "Dr. Staff_7"
+    ]
+  },
+  "MED178": {
+    "name": "Clinical Pharmacology 78",
+    "credits": 12,
+    "offered_terms": [
+      "Semester 1"
+    ],
+    "prerequisites": [
+      "MED177"
+    ],
+    "taught_by": [
+      "Dr. Staff_8"
+    ]
+  },
+  "MED179": {
+    "name": "Clinical Pharmacology 79",
+    "credits": 6,
+    "offered_terms": [
+      "Semester 1",
+      "Semester 2"
+    ],
+    "prerequisites": [
+      "MED178"
+    ],
+    "taught_by": [
+      "Dr. Staff_9"
+    ]
+  },
+  "MED180": {
+    "name": "Clinical Pharmacology 80",
+    "credits": 12,
+    "offered_terms": [
+      "Semester 1",
+      "Semester 2"
+    ],
+    "prerequisites": [
+      "MED179"
+    ],
+    "taught_by": [
+      "Dr. Staff_0"
+    ]
+  },
+  "MED181": {
+    "name": "Clinical Pharmacology 81",
+    "credits": 6,
+    "offered_terms": [
+      "Semester 1"
+    ],
+    "prerequisites": [
+      "MED180"
+    ],
+    "taught_by": [
+      "Dr. Staff_1"
+    ]
+  },
+  "MED182": {
+    "name": "Clinical Pharmacology 82",
+    "credits": 12,
+    "offered_terms": [
+      "Semester 1",
+      "Semester 2"
+    ],
+    "prerequisites": [
+      "MED181"
+    ],
+    "taught_by": [
+      "Dr. Staff_2"
+    ]
+  },
+  "MED183": {
+    "name": "Clinical Pharmacology 83",
+    "credits": 6,
+    "offered_terms": [
+      "Semester 1",
+      "Semester 2"
+    ],
+    "prerequisites": [
+      "MED182"
+    ],
+    "taught_by": [
+      "Dr. Staff_3"
+    ]
+  },
+  "MED184": {
+    "name": "Clinical Pharmacology 84",
+    "credits": 12,
+    "offered_terms": [
+      "Semester 1"
+    ],
+    "prerequisites": [
+      "MED183"
+    ],
+    "taught_by": [
+      "Dr. Staff_4"
+    ]
+  },
+  "MED185": {
+    "name": "Clinical Pharmacology 85",
+    "credits": 6,
+    "offered_terms": [
+      "Semester 1",
+      "Semester 2"
+    ],
+    "prerequisites": [
+      "MED184"
+    ],
+    "taught_by": [
+      "Dr. Staff_5"
+    ]
+  },
+  "MED186": {
+    "name": "Clinical Pharmacology 86",
+    "credits": 12,
+    "offered_terms": [
+      "Semester 1",
+      "Semester 2"
+    ],
+    "prerequisites": [
+      "MED185"
+    ],
+    "taught_by": [
+      "Dr. Staff_6"
+    ]
+  },
+  "MED187": {
+    "name": "Clinical Pharmacology 87",
+    "credits": 6,
+    "offered_terms": [
+      "Semester 1"
+    ],
+    "prerequisites": [
+      "MED186"
+    ],
+    "taught_by": [
+      "Dr. Staff_7"
+    ]
+  },
+  "MED188": {
+    "name": "Clinical Pharmacology 88",
+    "credits": 12,
+    "offered_terms": [
+      "Semester 1",
+      "Semester 2"
+    ],
+    "prerequisites": [
+      "MED187"
+    ],
+    "taught_by": [
+      "Dr. Staff_8"
+    ]
+  },
+  "MED189": {
+    "name": "Clinical Pharmacology 89",
+    "credits": 6,
+    "offered_terms": [
+      "Semester 1",
+      "Semester 2"
+    ],
+    "prerequisites": [
+      "MED188"
+    ],
+    "taught_by": [
+      "Dr. Staff_9"
+    ]
+  },
+  "MED190": {
+    "name": "Clinical Pharmacology 90",
+    "credits": 12,
+    "offered_terms": [
+      "Semester 1"
+    ],
+    "prerequisites": [
+      "MED189"
+    ],
+    "taught_by": [
+      "Dr. Staff_0"
+    ]
+  },
+  "MED191": {
+    "name": "Clinical Pharmacology 91",
+    "credits": 6,
+    "offered_terms": [
+      "Semester 1",
+      "Semester 2"
+    ],
+    "prerequisites": [
+      "MED190"
+    ],
+    "taught_by": [
+      "Dr. Staff_1"
+    ]
+  },
+  "MED192": {
+    "name": "Clinical Pharmacology 92",
+    "credits": 12,
+    "offered_terms": [
+      "Semester 1",
+      "Semester 2"
+    ],
+    "prerequisites": [
+      "MED191"
+    ],
+    "taught_by": [
+      "Dr. Staff_2"
+    ]
+  },
+  "MED193": {
+    "name": "Clinical Pharmacology 93",
+    "credits": 6,
+    "offered_terms": [
+      "Semester 1"
+    ],
+    "prerequisites": [
+      "MED192"
+    ],
+    "taught_by": [
+      "Dr. Staff_3"
+    ]
+  },
+  "MED194": {
+    "name": "Clinical Pharmacology 94",
+    "credits": 12,
+    "offered_terms": [
+      "Semester 1",
+      "Semester 2"
+    ],
+    "prerequisites": [
+      "MED193"
+    ],
+    "taught_by": [
+      "Dr. Staff_4"
+    ]
+  },
+  "MED195": {
+    "name": "Clinical Pharmacology 95",
+    "credits": 6,
+    "offered_terms": [
+      "Semester 1",
+      "Semester 2"
+    ],
+    "prerequisites": [
+      "MED194"
+    ],
+    "taught_by": [
+      "Dr. Staff_5"
+    ]
+  },
+  "MED196": {
+    "name": "Clinical Pharmacology 96",
+    "credits": 12,
+    "offered_terms": [
+      "Semester 1"
+    ],
+    "prerequisites": [
+      "MED195"
+    ],
+    "taught_by": [
+      "Dr. Staff_6"
+    ]
+  },
+  "MED197": {
+    "name": "Clinical Pharmacology 97",
+    "credits": 6,
+    "offered_terms": [
+      "Semester 1",
+      "Semester 2"
+    ],
+    "prerequisites": [
+      "MED196"
+    ],
+    "taught_by": [
+      "Dr. Staff_7"
+    ]
+  },
+  "MED198": {
+    "name": "Clinical Pharmacology 98",
+    "credits": 12,
+    "offered_terms": [
+      "Semester 1",
+      "Semester 2"
+    ],
+    "prerequisites": [
+      "MED197"
+    ],
+    "taught_by": [
+      "Dr. Staff_8"
+    ]
+  },
+  "MED199": {
+    "name": "Clinical Pharmacology 99",
+    "credits": 6,
+    "offered_terms": [
+      "Semester 1"
+    ],
+    "prerequisites": [
+      "MED198"
+    ],
+    "taught_by": [
+      "Dr. Staff_9"
+    ]
+  },
+  "MED200": {
+    "name": "Clinical Pharmacology 100",
+    "credits": 12,
+    "offered_terms": [
+      "Semester 1",
+      "Semester 2"
+    ],
+    "prerequisites": [
+      "MED199"
+    ],
+    "taught_by": [
+      "Dr. Staff_0"
+    ]
+  }
+}

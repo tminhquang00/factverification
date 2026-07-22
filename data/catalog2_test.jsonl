@@ -1,0 +1,200 @@
+{"id": "cat2-1", "text": "Course MED102 worth 12 credits has prerequisite MED101.", "gold_label": "Supported", "reasoning_type": "conjunction", "triples": [["MED102", "hasCreditValue", "12"], ["MED102", "requiresPrerequisite", "MED101"]]}
+{"id": "cat2-2", "text": "Course MED103 is worth 48 credits.", "gold_label": "Contradicted", "reasoning_type": "one-hop", "triples": [["MED103", "hasCreditValue", "48"]]}
+{"id": "cat2-3", "text": "Course MED999 is taught by Dr. Unknown.", "gold_label": "Not-in-KG", "reasoning_type": "one-hop", "triples": [["MED999", "taughtBy", "Dr. Unknown"]]}
+{"id": "cat2-4", "text": "Course MED105 worth 12 credits has prerequisite MED101.", "gold_label": "Supported", "reasoning_type": "conjunction", "triples": [["MED105", "hasCreditValue", "12"], ["MED105", "requiresPrerequisite", "MED101"]]}
+{"id": "cat2-5", "text": "Course MED106 is worth 48 credits.", "gold_label": "Contradicted", "reasoning_type": "one-hop", "triples": [["MED106", "hasCreditValue", "48"]]}
+{"id": "cat2-6", "text": "Course MED999 is taught by Dr. Unknown.", "gold_label": "Not-in-KG", "reasoning_type": "one-hop", "triples": [["MED999", "taughtBy", "Dr. Unknown"]]}
+{"id": "cat2-7", "text": "Course MED108 worth 12 credits has prerequisite MED101.", "gold_label": "Supported", "reasoning_type": "conjunction", "triples": [["MED108", "hasCreditValue", "12"], ["MED108", "requiresPrerequisite", "MED101"]]}
+{"id": "cat2-8", "text": "Course MED109 is worth 48 credits.", "gold_label": "Contradicted", "reasoning_type": "one-hop", "triples": [["MED109", "hasCreditValue", "48"]]}
+{"id": "cat2-9", "text": "Course MED999 is taught by Dr. Unknown.", "gold_label": "Not-in-KG", "reasoning_type": "one-hop", "triples": [["MED999", "taughtBy", "Dr. Unknown"]]}
+{"id": "cat2-10", "text": "Course MED111 worth 12 credits has prerequisite MED101.", "gold_label": "Supported", "reasoning_type": "conjunction", "triples": [["MED111", "hasCreditValue", "12"], ["MED111", "requiresPrerequisite", "MED101"]]}
+{"id": "cat2-11", "text": "Course MED112 is worth 48 credits.", "gold_label": "Contradicted", "reasoning_type": "one-hop", "triples": [["MED112", "hasCreditValue", "48"]]}
+{"id": "cat2-12", "text": "Course MED999 is taught by Dr. Unknown.", "gold_label": "Not-in-KG", "reasoning_type": "one-hop", "triples": [["MED999", "taughtBy", "Dr. Unknown"]]}
+{"id": "cat2-13", "text": "Course MED114 worth 12 credits has prerequisite MED101.", "gold_label": "Supported", "reasoning_type": "conjunction", "triples": [["MED114", "hasCreditValue", "12"], ["MED114", "requiresPrerequisite", "MED101"]]}
+{"id": "cat2-14", "text": "Course MED115 is worth 48 credits.", "gold_label": "Contradicted", "reasoning_type": "one-hop", "triples": [["MED115", "hasCreditValue", "48"]]}
+{"id": "cat2-15", "text": "Course MED999 is taught by Dr. Unknown.", "gold_label": "Not-in-KG", "reasoning_type": "one-hop", "triples": [["MED999", "taughtBy", "Dr. Unknown"]]}
+{"id": "cat2-16", "text": "Course MED117 worth 12 credits has prerequisite MED101.", "gold_label": "Supported", "reasoning_type": "conjunction", "triples": [["MED117", "hasCreditValue", "12"], ["MED117", "requiresPrerequisite", "MED101"]]}
+{"id": "cat2-17", "text": "Course MED118 is worth 48 credits.", "gold_label": "Contradicted", "reasoning_type": "one-hop", "triples": [["MED118", "hasCreditValue", "48"]]}
+{"id": "cat2-18", "text": "Course MED999 is taught by Dr. Unknown.", "gold_label": "Not-in-KG", "reasoning_type": "one-hop", "triples": [["MED999", "taughtBy", "Dr. Unknown"]]}
+{"id": "cat2-19", "text": "Course MED120 worth 12 credits has prerequisite MED101.", "gold_label": "Supported", "reasoning_type": "conjunction", "triples": [["MED120", "hasCreditValue", "12"], ["MED120", "requiresPrerequisite", "MED101"]]}
+{"id": "cat2-20", "text": "Course MED121 is worth 48 credits.", "gold_label": "Contradicted", "reasoning_type": "one-hop", "triples": [["MED121", "hasCreditValue", "48"]]}
+{"id": "cat2-21", "text": "Course MED999 is taught by Dr. Unknown.", "gold_label": "Not-in-KG", "reasoning_type": "one-hop", "triples": [["MED999", "taughtBy", "Dr. Unknown"]]}
+{"id": "cat2-22", "text": "Course MED123 worth 12 credits has prerequisite MED101.", "gold_label": "Supported", "reasoning_type": "conjunction", "triples": [["MED123", "hasCreditValue", "12"], ["MED123", "requiresPrerequisite", "MED101"]]}
+{"id": "cat2-23", "text": "Course MED124 is worth 48 credits.", "gold_label": "Contradicted", "reasoning_type": "one-hop", "triples": [["MED124", "hasCreditValue", "48"]]}
+{"id": "cat2-24", "text": "Course MED999 is taught by Dr. Unknown.", "gold_label": "Not-in-KG", "reasoning_type": "one-hop", "triples": [["MED999", "taughtBy", "Dr. Unknown"]]}
+{"id": "cat2-25", "text": "Course MED126 worth 12 credits has prerequisite MED101.", "gold_label": "Supported", "reasoning_type": "conjunction", "triples": [["MED126", "hasCreditValue", "12"], ["MED126", "requiresPrerequisite", "MED101"]]}
+{"id": "cat2-26", "text": "Course MED127 is worth 48 credits.", "gold_label": "Contradicted", "reasoning_type": "one-hop", "triples": [["MED127", "hasCreditValue", "48"]]}
+{"id": "cat2-27", "text": "Course MED999 is taught by Dr. Unknown.", "gold_label": "Not-in-KG", "reasoning_type": "one-hop", "triples": [["MED999", "taughtBy", "Dr. Unknown"]]}
+{"id": "cat2-28", "text": "Course MED129 worth 12 credits has prerequisite MED101.", "gold_label": "Supported", "reasoning_type": "conjunction", "triples": [["MED129", "hasCreditValue", "12"], ["MED129", "requiresPrerequisite", "MED101"]]}
+{"id": "cat2-29", "text": "Course MED130 is worth 48 credits.", "gold_label": "Contradicted", "reasoning_type": "one-hop", "triples": [["MED130", "hasCreditValue", "48"]]}
+{"id": "cat2-30", "text": "Course MED999 is taught by Dr. Unknown.", "gold_label": "Not-in-KG", "reasoning_type": "one-hop", "triples": [["MED999", "taughtBy", "Dr. Unknown"]]}
+{"id": "cat2-31", "text": "Course MED132 worth 12 credits has prerequisite MED101.", "gold_label": "Supported", "reasoning_type": "conjunction", "triples": [["MED132", "hasCreditValue", "12"], ["MED132", "requiresPrerequisite", "MED101"]]}
+{"id": "cat2-32", "text": "Course MED133 is worth 48 credits.", "gold_label": "Contradicted", "reasoning_type": "one-hop", "triples": [["MED133", "hasCreditValue", "48"]]}
+{"id": "cat2-33", "text": "Course MED999 is taught by Dr. Unknown.", "gold_label": "Not-in-KG", "reasoning_type": "one-hop", "triples": [["MED999", "taughtBy", "Dr. Unknown"]]}
+{"id": "cat2-34", "text": "Course MED135 worth 12 credits has prerequisite MED101.", "gold_label": "Supported", "reasoning_type": "conjunction", "triples": [["MED135", "hasCreditValue", "12"], ["MED135", "requiresPrerequisite", "MED101"]]}
+{"id": "cat2-35", "text": "Course MED136 is worth 48 credits.", "gold_label": "Contradicted", "reasoning_type": "one-hop", "triples": [["MED136", "hasCreditValue", "48"]]}
+{"id": "cat2-36", "text": "Course MED999 is taught by Dr. Unknown.", "gold_label": "Not-in-KG", "reasoning_type": "one-hop", "triples": [["MED999", "taughtBy", "Dr. Unknown"]]}
+{"id": "cat2-37", "text": "Course MED138 worth 12 credits has prerequisite MED101.", "gold_label": "Supported", "reasoning_type": "conjunction", "triples": [["MED138", "hasCreditValue", "12"], ["MED138", "requiresPrerequisite", "MED101"]]}
+{"id": "cat2-38", "text": "Course MED139 is worth 48 credits.", "gold_label": "Contradicted", "reasoning_type": "one-hop", "triples": [["MED139", "hasCreditValue", "48"]]}
+{"id": "cat2-39", "text": "Course MED999 is taught by Dr. Unknown.", "gold_label": "Not-in-KG", "reasoning_type": "one-hop", "triples": [["MED999", "taughtBy", "Dr. Unknown"]]}
+{"id": "cat2-40", "text": "Course MED141 worth 12 credits has prerequisite MED101.", "gold_label": "Supported", "reasoning_type": "conjunction", "triples": [["MED141", "hasCreditValue", "12"], ["MED141", "requiresPrerequisite", "MED101"]]}
+{"id": "cat2-41", "text": "Course MED142 is worth 48 credits.", "gold_label": "Contradicted", "reasoning_type": "one-hop", "triples": [["MED142", "hasCreditValue", "48"]]}
+{"id": "cat2-42", "text": "Course MED999 is taught by Dr. Unknown.", "gold_label": "Not-in-KG", "reasoning_type": "one-hop", "triples": [["MED999", "taughtBy", "Dr. Unknown"]]}
+{"id": "cat2-43", "text": "Course MED144 worth 12 credits has prerequisite MED101.", "gold_label": "Supported", "reasoning_type": "conjunction", "triples": [["MED144", "hasCreditValue", "12"], ["MED144", "requiresPrerequisite", "MED101"]]}
+{"id": "cat2-44", "text": "Course MED145 is worth 48 credits.", "gold_label": "Contradicted", "reasoning_type": "one-hop", "triples": [["MED145", "hasCreditValue", "48"]]}
+{"id": "cat2-45", "text": "Course MED999 is taught by Dr. Unknown.", "gold_label": "Not-in-KG", "reasoning_type": "one-hop", "triples": [["MED999", "taughtBy", "Dr. Unknown"]]}
+{"id": "cat2-46", "text": "Course MED147 worth 12 credits has prerequisite MED101.", "gold_label": "Supported", "reasoning_type": "conjunction", "triples": [["MED147", "hasCreditValue", "12"], ["MED147", "requiresPrerequisite", "MED101"]]}
+{"id": "cat2-47", "text": "Course MED148 is worth 48 credits.", "gold_label": "Contradicted", "reasoning_type": "one-hop", "triples": [["MED148", "hasCreditValue", "48"]]}
+{"id": "cat2-48", "text": "Course MED999 is taught by Dr. Unknown.", "gold_label": "Not-in-KG", "reasoning_type": "one-hop", "triples": [["MED999", "taughtBy", "Dr. Unknown"]]}
+{"id": "cat2-49", "text": "Course MED150 worth 12 credits has prerequisite MED101.", "gold_label": "Supported", "reasoning_type": "conjunction", "triples": [["MED150", "hasCreditValue", "12"], ["MED150", "requiresPrerequisite", "MED101"]]}
+{"id": "cat2-50", "text": "Course MED151 is worth 48 credits.", "gold_label": "Contradicted", "reasoning_type": "one-hop", "triples": [["MED151", "hasCreditValue", "48"]]}
+{"id": "cat2-51", "text": "Course MED999 is taught by Dr. Unknown.", "gold_label": "Not-in-KG", "reasoning_type": "one-hop", "triples": [["MED999", "taughtBy", "Dr. Unknown"]]}
+{"id": "cat2-52", "text": "Course MED153 worth 12 credits has prerequisite MED101.", "gold_label": "Supported", "reasoning_type": "conjunction", "triples": [["MED153", "hasCreditValue", "12"], ["MED153", "requiresPrerequisite", "MED101"]]}
+{"id": "cat2-53", "text": "Course MED154 is worth 48 credits.", "gold_label": "Contradicted", "reasoning_type": "one-hop", "triples": [["MED154", "hasCreditValue", "48"]]}
+{"id": "cat2-54", "text": "Course MED999 is taught by Dr. Unknown.", "gold_label": "Not-in-KG", "reasoning_type": "one-hop", "triples": [["MED999", "taughtBy", "Dr. Unknown"]]}
+{"id": "cat2-55", "text": "Course MED156 worth 12 credits has prerequisite MED101.", "gold_label": "Supported", "reasoning_type": "conjunction", "triples": [["MED156", "hasCreditValue", "12"], ["MED156", "requiresPrerequisite", "MED101"]]}
+{"id": "cat2-56", "text": "Course MED157 is worth 48 credits.", "gold_label": "Contradicted", "reasoning_type": "one-hop", "triples": [["MED157", "hasCreditValue", "48"]]}
+{"id": "cat2-57", "text": "Course MED999 is taught by Dr. Unknown.", "gold_label": "Not-in-KG", "reasoning_type": "one-hop", "triples": [["MED999", "taughtBy", "Dr. Unknown"]]}
+{"id": "cat2-58", "text": "Course MED159 worth 12 credits has prerequisite MED101.", "gold_label": "Supported", "reasoning_type": "conjunction", "triples": [["MED159", "hasCreditValue", "12"], ["MED159", "requiresPrerequisite", "MED101"]]}
+{"id": "cat2-59", "text": "Course MED160 is worth 48 credits.", "gold_label": "Contradicted", "reasoning_type": "one-hop", "triples": [["MED160", "hasCreditValue", "48"]]}
+{"id": "cat2-60", "text": "Course MED999 is taught by Dr. Unknown.", "gold_label": "Not-in-KG", "reasoning_type": "one-hop", "triples": [["MED999", "taughtBy", "Dr. Unknown"]]}
+{"id": "cat2-61", "text": "Course MED162 worth 12 credits has prerequisite MED101.", "gold_label": "Supported", "reasoning_type": "conjunction", "triples": [["MED162", "hasCreditValue", "12"], ["MED162", "requiresPrerequisite", "MED101"]]}
+{"id": "cat2-62", "text": "Course MED163 is worth 48 credits.", "gold_label": "Contradicted", "reasoning_type": "one-hop", "triples": [["MED163", "hasCreditValue", "48"]]}
+{"id": "cat2-63", "text": "Course MED999 is taught by Dr. Unknown.", "gold_label": "Not-in-KG", "reasoning_type": "one-hop", "triples": [["MED999", "taughtBy", "Dr. Unknown"]]}
+{"id": "cat2-64", "text": "Course MED165 worth 12 credits has prerequisite MED101.", "gold_label": "Supported", "reasoning_type": "conjunction", "triples": [["MED165", "hasCreditValue", "12"], ["MED165", "requiresPrerequisite", "MED101"]]}
+{"id": "cat2-65", "text": "Course MED166 is worth 48 credits.", "gold_label": "Contradicted", "reasoning_type": "one-hop", "triples": [["MED166", "hasCreditValue", "48"]]}
+{"id": "cat2-66", "text": "Course MED999 is taught by Dr. Unknown.", "gold_label": "Not-in-KG", "reasoning_type": "one-hop", "triples": [["MED999", "taughtBy", "Dr. Unknown"]]}
+{"id": "cat2-67", "text": "Course MED168 worth 12 credits has prerequisite MED101.", "gold_label": "Supported", "reasoning_type": "conjunction", "triples": [["MED168", "hasCreditValue", "12"], ["MED168", "requiresPrerequisite", "MED101"]]}
+{"id": "cat2-68", "text": "Course MED169 is worth 48 credits.", "gold_label": "Contradicted", "reasoning_type": "one-hop", "triples": [["MED169", "hasCreditValue", "48"]]}
+{"id": "cat2-69", "text": "Course MED999 is taught by Dr. Unknown.", "gold_label": "Not-in-KG", "reasoning_type": "one-hop", "triples": [["MED999", "taughtBy", "Dr. Unknown"]]}
+{"id": "cat2-70", "text": "Course MED171 worth 12 credits has prerequisite MED101.", "gold_label": "Supported", "reasoning_type": "conjunction", "triples": [["MED171", "hasCreditValue", "12"], ["MED171", "requiresPrerequisite", "MED101"]]}
+{"id": "cat2-71", "text": "Course MED172 is worth 48 credits.", "gold_label": "Contradicted", "reasoning_type": "one-hop", "triples": [["MED172", "hasCreditValue", "48"]]}
+{"id": "cat2-72", "text": "Course MED999 is taught by Dr. Unknown.", "gold_label": "Not-in-KG", "reasoning_type": "one-hop", "triples": [["MED999", "taughtBy", "Dr. Unknown"]]}
+{"id": "cat2-73", "text": "Course MED174 worth 12 credits has prerequisite MED101.", "gold_label": "Supported", "reasoning_type": "conjunction", "triples": [["MED174", "hasCreditValue", "12"], ["MED174", "requiresPrerequisite", "MED101"]]}
+{"id": "cat2-74", "text": "Course MED175 is worth 48 credits.", "gold_label": "Contradicted", "reasoning_type": "one-hop", "triples": [["MED175", "hasCreditValue", "48"]]}
+{"id": "cat2-75", "text": "Course MED999 is taught by Dr. Unknown.", "gold_label": "Not-in-KG", "reasoning_type": "one-hop", "triples": [["MED999", "taughtBy", "Dr. Unknown"]]}
+{"id": "cat2-76", "text": "Course MED177 worth 12 credits has prerequisite MED101.", "gold_label": "Supported", "reasoning_type": "conjunction", "triples": [["MED177", "hasCreditValue", "12"], ["MED177", "requiresPrerequisite", "MED101"]]}
+{"id": "cat2-77", "text": "Course MED178 is worth 48 credits.", "gold_label": "Contradicted", "reasoning_type": "one-hop", "triples": [["MED178", "hasCreditValue", "48"]]}
+{"id": "cat2-78", "text": "Course MED999 is taught by Dr. Unknown.", "gold_label": "Not-in-KG", "reasoning_type": "one-hop", "triples": [["MED999", "taughtBy", "Dr. Unknown"]]}
+{"id": "cat2-79", "text": "Course MED180 worth 12 credits has prerequisite MED101.", "gold_label": "Supported", "reasoning_type": "conjunction", "triples": [["MED180", "hasCreditValue", "12"], ["MED180", "requiresPrerequisite", "MED101"]]}
+{"id": "cat2-80", "text": "Course MED101 is worth 48 credits.", "gold_label": "Contradicted", "reasoning_type": "one-hop", "triples": [["MED101", "hasCreditValue", "48"]]}
+{"id": "cat2-81", "text": "Course MED999 is taught by Dr. Unknown.", "gold_label": "Not-in-KG", "reasoning_type": "one-hop", "triples": [["MED999", "taughtBy", "Dr. Unknown"]]}
+{"id": "cat2-82", "text": "Course MED103 worth 12 credits has prerequisite MED101.", "gold_label": "Supported", "reasoning_type": "conjunction", "triples": [["MED103", "hasCreditValue", "12"], ["MED103", "requiresPrerequisite", "MED101"]]}
+{"id": "cat2-83", "text": "Course MED104 is worth 48 credits.", "gold_label": "Contradicted", "reasoning_type": "one-hop", "triples": [["MED104", "hasCreditValue", "48"]]}
+{"id": "cat2-84", "text": "Course MED999 is taught by Dr. Unknown.", "gold_label": "Not-in-KG", "reasoning_type": "one-hop", "triples": [["MED999", "taughtBy", "Dr. Unknown"]]}
+{"id": "cat2-85", "text": "Course MED106 worth 12 credits has prerequisite MED101.", "gold_label": "Supported", "reasoning_type": "conjunction", "triples": [["MED106", "hasCreditValue", "12"], ["MED106", "requiresPrerequisite", "MED101"]]}
+{"id": "cat2-86", "text": "Course MED107 is worth 48 credits.", "gold_label": "Contradicted", "reasoning_type": "one-hop", "triples": [["MED107", "hasCreditValue", "48"]]}
+{"id": "cat2-87", "text": "Course MED999 is taught by Dr. Unknown.", "gold_label": "Not-in-KG", "reasoning_type": "one-hop", "triples": [["MED999", "taughtBy", "Dr. Unknown"]]}
+{"id": "cat2-88", "text": "Course MED109 worth 12 credits has prerequisite MED101.", "gold_label": "Supported", "reasoning_type": "conjunction", "triples": [["MED109", "hasCreditValue", "12"], ["MED109", "requiresPrerequisite", "MED101"]]}
+{"id": "cat2-89", "text": "Course MED110 is worth 48 credits.", "gold_label": "Contradicted", "reasoning_type": "one-hop", "triples": [["MED110", "hasCreditValue", "48"]]}
+{"id": "cat2-90", "text": "Course MED999 is taught by Dr. Unknown.", "gold_label": "Not-in-KG", "reasoning_type": "one-hop", "triples": [["MED999", "taughtBy", "Dr. Unknown"]]}
+{"id": "cat2-91", "text": "Course MED112 worth 12 credits has prerequisite MED101.", "gold_label": "Supported", "reasoning_type": "conjunction", "triples": [["MED112", "hasCreditValue", "12"], ["MED112", "requiresPrerequisite", "MED101"]]}
+{"id": "cat2-92", "text": "Course MED113 is worth 48 credits.", "gold_label": "Contradicted", "reasoning_type": "one-hop", "triples": [["MED113", "hasCreditValue", "48"]]}
+{"id": "cat2-93", "text": "Course MED999 is taught by Dr. Unknown.", "gold_label": "Not-in-KG", "reasoning_type": "one-hop", "triples": [["MED999", "taughtBy", "Dr. Unknown"]]}
+{"id": "cat2-94", "text": "Course MED115 worth 12 credits has prerequisite MED101.", "gold_label": "Supported", "reasoning_type": "conjunction", "triples": [["MED115", "hasCreditValue", "12"], ["MED115", "requiresPrerequisite", "MED101"]]}
+{"id": "cat2-95", "text": "Course MED116 is worth 48 credits.", "gold_label": "Contradicted", "reasoning_type": "one-hop", "triples": [["MED116", "hasCreditValue", "48"]]}
+{"id": "cat2-96", "text": "Course MED999 is taught by Dr. Unknown.", "gold_label": "Not-in-KG", "reasoning_type": "one-hop", "triples": [["MED999", "taughtBy", "Dr. Unknown"]]}
+{"id": "cat2-97", "text": "Course MED118 worth 12 credits has prerequisite MED101.", "gold_label": "Supported", "reasoning_type": "conjunction", "triples": [["MED118", "hasCreditValue", "12"], ["MED118", "requiresPrerequisite", "MED101"]]}
+{"id": "cat2-98", "text": "Course MED119 is worth 48 credits.", "gold_label": "Contradicted", "reasoning_type": "one-hop", "triples": [["MED119", "hasCreditValue", "48"]]}
+{"id": "cat2-99", "text": "Course MED999 is taught by Dr. Unknown.", "gold_label": "Not-in-KG", "reasoning_type": "one-hop", "triples": [["MED999", "taughtBy", "Dr. Unknown"]]}
+{"id": "cat2-100", "text": "Course MED121 worth 12 credits has prerequisite MED101.", "gold_label": "Supported", "reasoning_type": "conjunction", "triples": [["MED121", "hasCreditValue", "12"], ["MED121", "requiresPrerequisite", "MED101"]]}
+{"id": "cat2-101", "text": "Course MED122 is worth 48 credits.", "gold_label": "Contradicted", "reasoning_type": "one-hop", "triples": [["MED122", "hasCreditValue", "48"]]}
+{"id": "cat2-102", "text": "Course MED999 is taught by Dr. Unknown.", "gold_label": "Not-in-KG", "reasoning_type": "one-hop", "triples": [["MED999", "taughtBy", "Dr. Unknown"]]}
+{"id": "cat2-103", "text": "Course MED124 worth 12 credits has prerequisite MED101.", "gold_label": "Supported", "reasoning_type": "conjunction", "triples": [["MED124", "hasCreditValue", "12"], ["MED124", "requiresPrerequisite", "MED101"]]}
+{"id": "cat2-104", "text": "Course MED125 is worth 48 credits.", "gold_label": "Contradicted", "reasoning_type": "one-hop", "triples": [["MED125", "hasCreditValue", "48"]]}
+{"id": "cat2-105", "text": "Course MED999 is taught by Dr. Unknown.", "gold_label": "Not-in-KG", "reasoning_type": "one-hop", "triples": [["MED999", "taughtBy", "Dr. Unknown"]]}
+{"id": "cat2-106", "text": "Course MED127 worth 12 credits has prerequisite MED101.", "gold_label": "Supported", "reasoning_type": "conjunction", "triples": [["MED127", "hasCreditValue", "12"], ["MED127", "requiresPrerequisite", "MED101"]]}
+{"id": "cat2-107", "text": "Course MED128 is worth 48 credits.", "gold_label": "Contradicted", "reasoning_type": "one-hop", "triples": [["MED128", "hasCreditValue", "48"]]}
+{"id": "cat2-108", "text": "Course MED999 is taught by Dr. Unknown.", "gold_label": "Not-in-KG", "reasoning_type": "one-hop", "triples": [["MED999", "taughtBy", "Dr. Unknown"]]}
+{"id": "cat2-109", "text": "Course MED130 worth 12 credits has prerequisite MED101.", "gold_label": "Supported", "reasoning_type": "conjunction", "triples": [["MED130", "hasCreditValue", "12"], ["MED130", "requiresPrerequisite", "MED101"]]}
+{"id": "cat2-110", "text": "Course MED131 is worth 48 credits.", "gold_label": "Contradicted", "reasoning_type": "one-hop", "triples": [["MED131", "hasCreditValue", "48"]]}
+{"id": "cat2-111", "text": "Course MED999 is taught by Dr. Unknown.", "gold_label": "Not-in-KG", "reasoning_type": "one-hop", "triples": [["MED999", "taughtBy", "Dr. Unknown"]]}
+{"id": "cat2-112", "text": "Course MED133 worth 12 credits has prerequisite MED101.", "gold_label": "Supported", "reasoning_type": "conjunction", "triples": [["MED133", "hasCreditValue", "12"], ["MED133", "requiresPrerequisite", "MED101"]]}
+{"id": "cat2-113", "text": "Course MED134 is worth 48 credits.", "gold_label": "Contradicted", "reasoning_type": "one-hop", "triples": [["MED134", "hasCreditValue", "48"]]}
+{"id": "cat2-114", "text": "Course MED999 is taught by Dr. Unknown.", "gold_label": "Not-in-KG", "reasoning_type": "one-hop", "triples": [["MED999", "taughtBy", "Dr. Unknown"]]}
+{"id": "cat2-115", "text": "Course MED136 worth 12 credits has prerequisite MED101.", "gold_label": "Supported", "reasoning_type": "conjunction", "triples": [["MED136", "hasCreditValue", "12"], ["MED136", "requiresPrerequisite", "MED101"]]}
+{"id": "cat2-116", "text": "Course MED137 is worth 48 credits.", "gold_label": "Contradicted", "reasoning_type": "one-hop", "triples": [["MED137", "hasCreditValue", "48"]]}
+{"id": "cat2-117", "text": "Course MED999 is taught by Dr. Unknown.", "gold_label": "Not-in-KG", "reasoning_type": "one-hop", "triples": [["MED999", "taughtBy", "Dr. Unknown"]]}
+{"id": "cat2-118", "text": "Course MED139 worth 12 credits has prerequisite MED101.", "gold_label": "Supported", "reasoning_type": "conjunction", "triples": [["MED139", "hasCreditValue", "12"], ["MED139", "requiresPrerequisite", "MED101"]]}
+{"id": "cat2-119", "text": "Course MED140 is worth 48 credits.", "gold_label": "Contradicted", "reasoning_type": "one-hop", "triples": [["MED140", "hasCreditValue", "48"]]}
+{"id": "cat2-120", "text": "Course MED999 is taught by Dr. Unknown.", "gold_label": "Not-in-KG", "reasoning_type": "one-hop", "triples": [["MED999", "taughtBy", "Dr. Unknown"]]}
+{"id": "cat2-121", "text": "Course MED142 worth 12 credits has prerequisite MED101.", "gold_label": "Supported", "reasoning_type": "conjunction", "triples": [["MED142", "hasCreditValue", "12"], ["MED142", "requiresPrerequisite", "MED101"]]}
+{"id": "cat2-122", "text": "Course MED143 is worth 48 credits.", "gold_label": "Contradicted", "reasoning_type": "one-hop", "triples": [["MED143", "hasCreditValue", "48"]]}
+{"id": "cat2-123", "text": "Course MED999 is taught by Dr. Unknown.", "gold_label": "Not-in-KG", "reasoning_type": "one-hop", "triples": [["MED999", "taughtBy", "Dr. Unknown"]]}
+{"id": "cat2-124", "text": "Course MED145 worth 12 credits has prerequisite MED101.", "gold_label": "Supported", "reasoning_type": "conjunction", "triples": [["MED145", "hasCreditValue", "12"], ["MED145", "requiresPrerequisite", "MED101"]]}
+{"id": "cat2-125", "text": "Course MED146 is worth 48 credits.", "gold_label": "Contradicted", "reasoning_type": "one-hop", "triples": [["MED146", "hasCreditValue", "48"]]}
+{"id": "cat2-126", "text": "Course MED999 is taught by Dr. Unknown.", "gold_label": "Not-in-KG", "reasoning_type": "one-hop", "triples": [["MED999", "taughtBy", "Dr. Unknown"]]}
+{"id": "cat2-127", "text": "Course MED148 worth 12 credits has prerequisite MED101.", "gold_label": "Supported", "reasoning_type": "conjunction", "triples": [["MED148", "hasCreditValue", "12"], ["MED148", "requiresPrerequisite", "MED101"]]}
+{"id": "cat2-128", "text": "Course MED149 is worth 48 credits.", "gold_label": "Contradicted", "reasoning_type": "one-hop", "triples": [["MED149", "hasCreditValue", "48"]]}
+{"id": "cat2-129", "text": "Course MED999 is taught by Dr. Unknown.", "gold_label": "Not-in-KG", "reasoning_type": "one-hop", "triples": [["MED999", "taughtBy", "Dr. Unknown"]]}
+{"id": "cat2-130", "text": "Course MED151 worth 12 credits has prerequisite MED101.", "gold_label": "Supported", "reasoning_type": "conjunction", "triples": [["MED151", "hasCreditValue", "12"], ["MED151", "requiresPrerequisite", "MED101"]]}
+{"id": "cat2-131", "text": "Course MED152 is worth 48 credits.", "gold_label": "Contradicted", "reasoning_type": "one-hop", "triples": [["MED152", "hasCreditValue", "48"]]}
+{"id": "cat2-132", "text": "Course MED999 is taught by Dr. Unknown.", "gold_label": "Not-in-KG", "reasoning_type": "one-hop", "triples": [["MED999", "taughtBy", "Dr. Unknown"]]}
+{"id": "cat2-133", "text": "Course MED154 worth 12 credits has prerequisite MED101.", "gold_label": "Supported", "reasoning_type": "conjunction", "triples": [["MED154", "hasCreditValue", "12"], ["MED154", "requiresPrerequisite", "MED101"]]}
+{"id": "cat2-134", "text": "Course MED155 is worth 48 credits.", "gold_label": "Contradicted", "reasoning_type": "one-hop", "triples": [["MED155", "hasCreditValue", "48"]]}
+{"id": "cat2-135", "text": "Course MED999 is taught by Dr. Unknown.", "gold_label": "Not-in-KG", "reasoning_type": "one-hop", "triples": [["MED999", "taughtBy", "Dr. Unknown"]]}
+{"id": "cat2-136", "text": "Course MED157 worth 12 credits has prerequisite MED101.", "gold_label": "Supported", "reasoning_type": "conjunction", "triples": [["MED157", "hasCreditValue", "12"], ["MED157", "requiresPrerequisite", "MED101"]]}
+{"id": "cat2-137", "text": "Course MED158 is worth 48 credits.", "gold_label": "Contradicted", "reasoning_type": "one-hop", "triples": [["MED158", "hasCreditValue", "48"]]}
+{"id": "cat2-138", "text": "Course MED999 is taught by Dr. Unknown.", "gold_label": "Not-in-KG", "reasoning_type": "one-hop", "triples": [["MED999", "taughtBy", "Dr. Unknown"]]}
+{"id": "cat2-139", "text": "Course MED160 worth 12 credits has prerequisite MED101.", "gold_label": "Supported", "reasoning_type": "conjunction", "triples": [["MED160", "hasCreditValue", "12"], ["MED160", "requiresPrerequisite", "MED101"]]}
+{"id": "cat2-140", "text": "Course MED161 is worth 48 credits.", "gold_label": "Contradicted", "reasoning_type": "one-hop", "triples": [["MED161", "hasCreditValue", "48"]]}
+{"id": "cat2-141", "text": "Course MED999 is taught by Dr. Unknown.", "gold_label": "Not-in-KG", "reasoning_type": "one-hop", "triples": [["MED999", "taughtBy", "Dr. Unknown"]]}
+{"id": "cat2-142", "text": "Course MED163 worth 12 credits has prerequisite MED101.", "gold_label": "Supported", "reasoning_type": "conjunction", "triples": [["MED163", "hasCreditValue", "12"], ["MED163", "requiresPrerequisite", "MED101"]]}
+{"id": "cat2-143", "text": "Course MED164 is worth 48 credits.", "gold_label": "Contradicted", "reasoning_type": "one-hop", "triples": [["MED164", "hasCreditValue", "48"]]}
+{"id": "cat2-144", "text": "Course MED999 is taught by Dr. Unknown.", "gold_label": "Not-in-KG", "reasoning_type": "one-hop", "triples": [["MED999", "taughtBy", "Dr. Unknown"]]}
+{"id": "cat2-145", "text": "Course MED166 worth 12 credits has prerequisite MED101.", "gold_label": "Supported", "reasoning_type": "conjunction", "triples": [["MED166", "hasCreditValue", "12"], ["MED166", "requiresPrerequisite", "MED101"]]}
+{"id": "cat2-146", "text": "Course MED167 is worth 48 credits.", "gold_label": "Contradicted", "reasoning_type": "one-hop", "triples": [["MED167", "hasCreditValue", "48"]]}
+{"id": "cat2-147", "text": "Course MED999 is taught by Dr. Unknown.", "gold_label": "Not-in-KG", "reasoning_type": "one-hop", "triples": [["MED999", "taughtBy", "Dr. Unknown"]]}
+{"id": "cat2-148", "text": "Course MED169 worth 12 credits has prerequisite MED101.", "gold_label": "Supported", "reasoning_type": "conjunction", "triples": [["MED169", "hasCreditValue", "12"], ["MED169", "requiresPrerequisite", "MED101"]]}
+{"id": "cat2-149", "text": "Course MED170 is worth 48 credits.", "gold_label": "Contradicted", "reasoning_type": "one-hop", "triples": [["MED170", "hasCreditValue", "48"]]}
+{"id": "cat2-150", "text": "Course MED999 is taught by Dr. Unknown.", "gold_label": "Not-in-KG", "reasoning_type": "one-hop", "triples": [["MED999", "taughtBy", "Dr. Unknown"]]}
+{"id": "cat2-151", "text": "Course MED172 worth 12 credits has prerequisite MED101.", "gold_label": "Supported", "reasoning_type": "conjunction", "triples": [["MED172", "hasCreditValue", "12"], ["MED172", "requiresPrerequisite", "MED101"]]}
+{"id": "cat2-152", "text": "Course MED173 is worth 48 credits.", "gold_label": "Contradicted", "reasoning_type": "one-hop", "triples": [["MED173", "hasCreditValue", "48"]]}
+{"id": "cat2-153", "text": "Course MED999 is taught by Dr. Unknown.", "gold_label": "Not-in-KG", "reasoning_type": "one-hop", "triples": [["MED999", "taughtBy", "Dr. Unknown"]]}
+{"id": "cat2-154", "text": "Course MED175 worth 12 credits has prerequisite MED101.", "gold_label": "Supported", "reasoning_type": "conjunction", "triples": [["MED175", "hasCreditValue", "12"], ["MED175", "requiresPrerequisite", "MED101"]]}
+{"id": "cat2-155", "text": "Course MED176 is worth 48 credits.", "gold_label": "Contradicted", "reasoning_type": "one-hop", "triples": [["MED176", "hasCreditValue", "48"]]}
+{"id": "cat2-156", "text": "Course MED999 is taught by Dr. Unknown.", "gold_label": "Not-in-KG", "reasoning_type": "one-hop", "triples": [["MED999", "taughtBy", "Dr. Unknown"]]}
+{"id": "cat2-157", "text": "Course MED178 worth 12 credits has prerequisite MED101.", "gold_label": "Supported", "reasoning_type": "conjunction", "triples": [["MED178", "hasCreditValue", "12"], ["MED178", "requiresPrerequisite", "MED101"]]}
+{"id": "cat2-158", "text": "Course MED179 is worth 48 credits.", "gold_label": "Contradicted", "reasoning_type": "one-hop", "triples": [["MED179", "hasCreditValue", "48"]]}
+{"id": "cat2-159", "text": "Course MED999 is taught by Dr. Unknown.", "gold_label": "Not-in-KG", "reasoning_type": "one-hop", "triples": [["MED999", "taughtBy", "Dr. Unknown"]]}
+{"id": "cat2-160", "text": "Course MED101 worth 12 credits has prerequisite MED101.", "gold_label": "Supported", "reasoning_type": "conjunction", "triples": [["MED101", "hasCreditValue", "12"], ["MED101", "requiresPrerequisite", "MED101"]]}
+{"id": "cat2-161", "text": "Course MED102 is worth 48 credits.", "gold_label": "Contradicted", "reasoning_type": "one-hop", "triples": [["MED102", "hasCreditValue", "48"]]}
+{"id": "cat2-162", "text": "Course MED999 is taught by Dr. Unknown.", "gold_label": "Not-in-KG", "reasoning_type": "one-hop", "triples": [["MED999", "taughtBy", "Dr. Unknown"]]}
+{"id": "cat2-163", "text": "Course MED104 worth 12 credits has prerequisite MED101.", "gold_label": "Supported", "reasoning_type": "conjunction", "triples": [["MED104", "hasCreditValue", "12"], ["MED104", "requiresPrerequisite", "MED101"]]}
+{"id": "cat2-164", "text": "Course MED105 is worth 48 credits.", "gold_label": "Contradicted", "reasoning_type": "one-hop", "triples": [["MED105", "hasCreditValue", "48"]]}
+{"id": "cat2-165", "text": "Course MED999 is taught by Dr. Unknown.", "gold_label": "Not-in-KG", "reasoning_type": "one-hop", "triples": [["MED999", "taughtBy", "Dr. Unknown"]]}
+{"id": "cat2-166", "text": "Course MED107 worth 12 credits has prerequisite MED101.", "gold_label": "Supported", "reasoning_type": "conjunction", "triples": [["MED107", "hasCreditValue", "12"], ["MED107", "requiresPrerequisite", "MED101"]]}
+{"id": "cat2-167", "text": "Course MED108 is worth 48 credits.", "gold_label": "Contradicted", "reasoning_type": "one-hop", "triples": [["MED108", "hasCreditValue", "48"]]}
+{"id": "cat2-168", "text": "Course MED999 is taught by Dr. Unknown.", "gold_label": "Not-in-KG", "reasoning_type": "one-hop", "triples": [["MED999", "taughtBy", "Dr. Unknown"]]}
+{"id": "cat2-169", "text": "Course MED110 worth 12 credits has prerequisite MED101.", "gold_label": "Supported", "reasoning_type": "conjunction", "triples": [["MED110", "hasCreditValue", "12"], ["MED110", "requiresPrerequisite", "MED101"]]}
+{"id": "cat2-170", "text": "Course MED111 is worth 48 credits.", "gold_label": "Contradicted", "reasoning_type": "one-hop", "triples": [["MED111", "hasCreditValue", "48"]]}
+{"id": "cat2-171", "text": "Course MED999 is taught by Dr. Unknown.", "gold_label": "Not-in-KG", "reasoning_type": "one-hop", "triples": [["MED999", "taughtBy", "Dr. Unknown"]]}
+{"id": "cat2-172", "text": "Course MED113 worth 12 credits has prerequisite MED101.", "gold_label": "Supported", "reasoning_type": "conjunction", "triples": [["MED113", "hasCreditValue", "12"], ["MED113", "requiresPrerequisite", "MED101"]]}
+{"id": "cat2-173", "text": "Course MED114 is worth 48 credits.", "gold_label": "Contradicted", "reasoning_type": "one-hop", "triples": [["MED114", "hasCreditValue", "48"]]}
+{"id": "cat2-174", "text": "Course MED999 is taught by Dr. Unknown.", "gold_label": "Not-in-KG", "reasoning_type": "one-hop", "triples": [["MED999", "taughtBy", "Dr. Unknown"]]}
+{"id": "cat2-175", "text": "Course MED116 worth 12 credits has prerequisite MED101.", "gold_label": "Supported", "reasoning_type": "conjunction", "triples": [["MED116", "hasCreditValue", "12"], ["MED116", "requiresPrerequisite", "MED101"]]}
+{"id": "cat2-176", "text": "Course MED117 is worth 48 credits.", "gold_label": "Contradicted", "reasoning_type": "one-hop", "triples": [["MED117", "hasCreditValue", "48"]]}
+{"id": "cat2-177", "text": "Course MED999 is taught by Dr. Unknown.", "gold_label": "Not-in-KG", "reasoning_type": "one-hop", "triples": [["MED999", "taughtBy", "Dr. Unknown"]]}
+{"id": "cat2-178", "text": "Course MED119 worth 12 credits has prerequisite MED101.", "gold_label": "Supported", "reasoning_type": "conjunction", "triples": [["MED119", "hasCreditValue", "12"], ["MED119", "requiresPrerequisite", "MED101"]]}
+{"id": "cat2-179", "text": "Course MED120 is worth 48 credits.", "gold_label": "Contradicted", "reasoning_type": "one-hop", "triples": [["MED120", "hasCreditValue", "48"]]}
+{"id": "cat2-180", "text": "Course MED999 is taught by Dr. Unknown.", "gold_label": "Not-in-KG", "reasoning_type": "one-hop", "triples": [["MED999", "taughtBy", "Dr. Unknown"]]}
+{"id": "cat2-181", "text": "Course MED122 worth 12 credits has prerequisite MED101.", "gold_label": "Supported", "reasoning_type": "conjunction", "triples": [["MED122", "hasCreditValue", "12"], ["MED122", "requiresPrerequisite", "MED101"]]}
+{"id": "cat2-182", "text": "Course MED123 is worth 48 credits.", "gold_label": "Contradicted", "reasoning_type": "one-hop", "triples": [["MED123", "hasCreditValue", "48"]]}
+{"id": "cat2-183", "text": "Course MED999 is taught by Dr. Unknown.", "gold_label": "Not-in-KG", "reasoning_type": "one-hop", "triples": [["MED999", "taughtBy", "Dr. Unknown"]]}
+{"id": "cat2-184", "text": "Course MED125 worth 12 credits has prerequisite MED101.", "gold_label": "Supported", "reasoning_type": "conjunction", "triples": [["MED125", "hasCreditValue", "12"], ["MED125", "requiresPrerequisite", "MED101"]]}
+{"id": "cat2-185", "text": "Course MED126 is worth 48 credits.", "gold_label": "Contradicted", "reasoning_type": "one-hop", "triples": [["MED126", "hasCreditValue", "48"]]}
+{"id": "cat2-186", "text": "Course MED999 is taught by Dr. Unknown.", "gold_label": "Not-in-KG", "reasoning_type": "one-hop", "triples": [["MED999", "taughtBy", "Dr. Unknown"]]}
+{"id": "cat2-187", "text": "Course MED128 worth 12 credits has prerequisite MED101.", "gold_label": "Supported", "reasoning_type": "conjunction", "triples": [["MED128", "hasCreditValue", "12"], ["MED128", "requiresPrerequisite", "MED101"]]}
+{"id": "cat2-188", "text": "Course MED129 is worth 48 credits.", "gold_label": "Contradicted", "reasoning_type": "one-hop", "triples": [["MED129", "hasCreditValue", "48"]]}
+{"id": "cat2-189", "text": "Course MED999 is taught by Dr. Unknown.", "gold_label": "Not-in-KG", "reasoning_type": "one-hop", "triples": [["MED999", "taughtBy", "Dr. Unknown"]]}
+{"id": "cat2-190", "text": "Course MED131 worth 12 credits has prerequisite MED101.", "gold_label": "Supported", "reasoning_type": "conjunction", "triples": [["MED131", "hasCreditValue", "12"], ["MED131", "requiresPrerequisite", "MED101"]]}
+{"id": "cat2-191", "text": "Course MED132 is worth 48 credits.", "gold_label": "Contradicted", "reasoning_type": "one-hop", "triples": [["MED132", "hasCreditValue", "48"]]}
+{"id": "cat2-192", "text": "Course MED999 is taught by Dr. Unknown.", "gold_label": "Not-in-KG", "reasoning_type": "one-hop", "triples": [["MED999", "taughtBy", "Dr. Unknown"]]}
+{"id": "cat2-193", "text": "Course MED134 worth 12 credits has prerequisite MED101.", "gold_label": "Supported", "reasoning_type": "conjunction", "triples": [["MED134", "hasCreditValue", "12"], ["MED134", "requiresPrerequisite", "MED101"]]}
+{"id": "cat2-194", "text": "Course MED135 is worth 48 credits.", "gold_label": "Contradicted", "reasoning_type": "one-hop", "triples": [["MED135", "hasCreditValue", "48"]]}
+{"id": "cat2-195", "text": "Course MED999 is taught by Dr. Unknown.", "gold_label": "Not-in-KG", "reasoning_type": "one-hop", "triples": [["MED999", "taughtBy", "Dr. Unknown"]]}
+{"id": "cat2-196", "text": "Course MED137 worth 12 credits has prerequisite MED101.", "gold_label": "Supported", "reasoning_type": "conjunction", "triples": [["MED137", "hasCreditValue", "12"], ["MED137", "requiresPrerequisite", "MED101"]]}
+{"id": "cat2-197", "text": "Course MED138 is worth 48 credits.", "gold_label": "Contradicted", "reasoning_type": "one-hop", "triples": [["MED138", "hasCreditValue", "48"]]}
+{"id": "cat2-198", "text": "Course MED999 is taught by Dr. Unknown.", "gold_label": "Not-in-KG", "reasoning_type": "one-hop", "triples": [["MED999", "taughtBy", "Dr. Unknown"]]}
+{"id": "cat2-199", "text": "Course MED140 worth 12 credits has prerequisite MED101.", "gold_label": "Supported", "reasoning_type": "conjunction", "triples": [["MED140", "hasCreditValue", "12"], ["MED140", "requiresPrerequisite", "MED101"]]}
+{"id": "cat2-200", "text": "Course MED141 is worth 48 credits.", "gold_label": "Contradicted", "reasoning_type": "one-hop", "triples": [["MED141", "hasCreditValue", "48"]]}
