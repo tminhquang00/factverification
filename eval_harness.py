@@ -213,7 +213,7 @@ def main():
     parser.add_argument("--oracle_linking", action="store_true", help="Enable Experiment 1: Oracle Entity/Relation Linking")
     parser.add_argument("--decontextualize", action="store_true", help="Enable Experiment 3: CoVe-style factored multi-hop decontextualization")
     parser.add_argument("--smooth_calibration", action="store_true", help="Enable Experiment 4: Continuous confidence score calibration & smoothing")
-    parser.add_argument("--output_file", type=str, default=None, help="Path to write JSON evaluation output")
+    parser.add_argument("--max_workers", type=int, default=10, help="Number of parallel worker threads for LLM calls")
     args = parser.parse_args()
 
     # Reject structured methods on FEVER
@@ -248,18 +248,16 @@ def main():
         else:
             pipeline = VerificationPipeline(llm_client=llm_client, oracle_linking=args.oracle_linking, decontextualize=args.decontextualize, smooth_calibration=args.smooth_calibration)
         
-    logger.info(f"Running evaluation on {len(data)} items from {args.dataset} using {args.method} (Model: {llm_client.model}, Provider: {llm_client.provider})...")
+    logger.info(f"Running evaluation on {len(data)} items from {args.dataset} using {args.method} (Model: {llm_client.model}, Provider: {llm_client.provider}, Max Workers: {args.max_workers})...")
     
-    predictions = []
-    gold_labels = []
-    results_detail = []
-    
-    for idx, item in enumerate(data):
+    predictions = [None] * len(data)
+    gold_labels = [None] * len(data)
+    results_detail = [None] * len(data)
+
+    def evaluate_item(idx, item):
         claim = item["text"]
         gold = item["gold_label"]
         triples = item.get("triples", [])
-        
-        logger.info(f"[{idx+1}/{len(data)}] Claim: \"{claim}\" (Gold: {gold})")
         
         if args.method == "closed_book_llm":
             pred = run_closed_book_verification(claim, llm_client)
@@ -273,8 +271,6 @@ def main():
             
         # Normalize prediction label space based on the dataset
         if args.dataset == "factkg":
-            # For FactKG, target labels are strictly Supported or Contradicted.
-            # Map pipeline/model uncertainty outcomes (Not-in-KG, Out-of-scope) to Contradicted
             if pred in ["Not-in-KG", "Out-of-scope", "Abstained"]:
                 pred = "Contradicted"
             elif pred != "Supported":
@@ -283,17 +279,38 @@ def main():
             if pred == "Out-of-scope":
                 pred = "Not-in-KG"
                 
-        logger.info(f"  Prediction: {pred}")
-        predictions.append(pred)
-        gold_labels.append(gold)
-        results_detail.append({
+        return idx, pred, gold, raw_pred, {
             "id": item["id"],
             "claim": claim,
             "gold": gold,
             "pred": pred,
             "raw_pred": raw_pred,
             "reasoning_type": item.get("reasoning_type", "N/A")
-        })
+        }
+
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    with ThreadPoolExecutor(max_workers=args.max_workers) as executor:
+        futures = {executor.submit(evaluate_item, idx, item): idx for idx, item in enumerate(data)}
+        for future in as_completed(futures):
+            idx = futures[future]
+            try:
+                i, pred, gold, raw_pred, detail = future.result()
+                predictions[i] = pred
+                gold_labels[i] = gold
+                results_detail[i] = detail
+            except Exception as e:
+                logger.error(f"Error evaluating item {idx}: {e}")
+                predictions[idx] = "Contradicted" if args.dataset == "factkg" else "Not-in-KG"
+                gold_labels[idx] = data[idx]["gold_label"]
+                results_detail[idx] = {
+                    "id": data[idx]["id"],
+                    "claim": data[idx]["text"],
+                    "gold": data[idx]["gold_label"],
+                    "pred": predictions[idx],
+                    "raw_pred": "Error",
+                    "reasoning_type": data[idx].get("reasoning_type", "N/A")
+                }
+
         
     # Compute metrics
     accuracy, class_metrics, ci_lower, ci_upper = compute_metrics(predictions, gold_labels)

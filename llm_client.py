@@ -110,6 +110,42 @@ class LLMClient:
                     pass
             raise e
 
+    def generate_batch(self, prompts: list, system_prompt: str = None, json_mode: bool = False, max_workers: int = 10, **kwargs) -> list:
+        """Executes a list of prompts in parallel using ThreadPoolExecutor."""
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+        results = [None] * len(prompts)
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            future_to_idx = {
+                executor.submit(self.generate, prompt, system_prompt=system_prompt, json_mode=json_mode, **kwargs): i
+                for i, prompt in enumerate(prompts)
+            }
+            for future in as_completed(future_to_idx):
+                idx = future_to_idx[future]
+                try:
+                    results[idx] = future.result()
+                except Exception as e:
+                    logger.error(f"Error in batch generation item {idx}: {e}")
+                    results[idx] = ""
+        return results
+
+    def generate_json_batch(self, prompts: list, system_prompt: str = None, max_workers: int = 10, **kwargs) -> list:
+        """Executes a list of prompts in parallel using ThreadPoolExecutor for JSON output."""
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+        results = [None] * len(prompts)
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            future_to_idx = {
+                executor.submit(self.generate_json, prompt, system_prompt=system_prompt, **kwargs): i
+                for i, prompt in enumerate(prompts)
+            }
+            for future in as_completed(future_to_idx):
+                idx = future_to_idx[future]
+                try:
+                    results[idx] = future.result()
+                except Exception as e:
+                    logger.error(f"Error in batch JSON generation item {idx}: {e}")
+                    results[idx] = {"verdict": "Not-in-KG", "reason": f"Batch error: {e}", "evidence": []}
+        return results
+
 _client_instance = None
 
 def get_llm_client(provider: str = None, model: str = None, base_url: str = None) -> LLMClient:
@@ -117,3 +153,4 @@ def get_llm_client(provider: str = None, model: str = None, base_url: str = None
     if provider is not None or model is not None or _client_instance is None:
         _client_instance = LLMClient(provider=provider, model=model, base_url=base_url)
     return _client_instance
+
