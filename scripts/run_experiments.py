@@ -46,6 +46,7 @@ def main():
                 "--limit", "500",
                 "--model_name", model_name,
                 "--provider", provider,
+                "--max_workers", "10",
                 "--output_file", out_file
             ] if ds != "rmit" else [
                 PYTHON_EXEC, "-u", "eval_rmit.py"

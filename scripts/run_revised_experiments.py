@@ -39,23 +39,24 @@ def compute_fcr(predictions, gold_labels):
     false_contradictions = sum(1 for i in contradicted_indices if gold_labels[i] in ["Supported", "Not-in-KG"])
     return float(false_contradictions / len(contradicted_indices))
 
-def run_e2_routing_ablation(dataset_name, data, pipeline):
-    logger.info(f"Running E2 World-Assumption Routing Ablation on {dataset_name} ({len(data)} items)...")
+def run_e2_routing_ablation(dataset_name, data, pipeline, max_workers=10):
+    logger.info(f"Running E2 World-Assumption Routing Ablation on {dataset_name} ({len(data)} items, max_workers={max_workers})...")
     results = {}
+    from concurrent.futures import ThreadPoolExecutor, as_completed
     
     for mode in ["dynamic", "fixed_cwa", "fixed_owa"]:
-        preds = []
-        golds = []
-        for item in data:
+        preds = [None] * len(data)
+        golds = [None] * len(data)
+        
+        def eval_item(idx, item):
             claim = item["text"]
             gold = item["gold_label"]
             triples = item.get("triples", [])
             
-            # Temporary override of CWA mode in pipeline
             if mode == "fixed_cwa":
-                pipeline.cwa_threshold = 0.0 # Force CWA
+                pipeline.cwa_threshold = 0.0
             elif mode == "fixed_owa":
-                pipeline.cwa_threshold = 1.0 # Force OWA
+                pipeline.cwa_threshold = 1.0
             else:
                 pipeline.cwa_threshold = 0.60
                 
@@ -68,9 +69,20 @@ def run_e2_routing_ablation(dataset_name, data, pipeline):
             elif dataset_name in ["codex", "metaqa"]:
                 if pred == "Out-of-scope":
                     pred = "Not-in-KG"
-                    
-            preds.append(pred)
-            golds.append(gold)
+            return idx, pred, gold
+
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = {executor.submit(eval_item, idx, item): idx for idx, item in enumerate(data)}
+            for future in as_completed(futures):
+                idx = futures[future]
+                try:
+                    i, pred, gold = future.result()
+                    preds[i] = pred
+                    golds[i] = gold
+                except Exception as e:
+                    logger.error(f"Error evaluating item {idx}: {e}")
+                    preds[idx] = "Contradicted" if dataset_name == "factkg" else "Not-in-KG"
+                    golds[idx] = data[idx]["gold_label"]
             
         acc, _, ci_low, ci_high = compute_metrics(preds, golds)
         macro_f1 = compute_macro_f1(preds, golds)

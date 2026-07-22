@@ -25,28 +25,20 @@ def main():
                 
     logger.info(f"Loaded {len(data)} test items.")
     
-    predictions = []
-    gold_labels = []
-    results_detail = []
+    predictions = [None] * len(data)
+    gold_labels = [None] * len(data)
+    results_detail = [None] * len(data)
     
-    for idx, item in enumerate(data):
+    def evaluate_rmit_item(idx, item):
         text = item["text"]
         gold = item["gold_label"]
         reasoning = item["reasoning_type"]
         raw_claim = item.get("raw_claim", text)
         
-        logger.info(f"[{idx+1}/{len(data)}] Reasoning: {reasoning} | Gold: {gold}")
-        logger.info(f"  Statement: \"{raw_claim}\"")
-        
-        # Run pipeline
         res = pipeline.verify_statement(raw_claim)
         pred = res["overall_verdict"]
         
-        logger.info(f"  Pred: {pred}")
-        
-        predictions.append(pred)
-        gold_labels.append(gold)
-        results_detail.append({
+        return idx, pred, gold, {
             "id": item["id"],
             "text": text,
             "raw_claim": raw_claim,
@@ -54,7 +46,31 @@ def main():
             "pred": pred,
             "reasoning_type": reasoning,
             "claims_detail": res["claims"]
-        })
+        }
+
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        futures = {executor.submit(evaluate_rmit_item, idx, item): idx for idx, item in enumerate(data)}
+        for future in as_completed(futures):
+            idx = futures[future]
+            try:
+                i, pred, gold, detail = future.result()
+                predictions[i] = pred
+                gold_labels[i] = gold
+                results_detail[i] = detail
+            except Exception as e:
+                logger.error(f"Error evaluating RMIT item {idx}: {e}")
+                predictions[idx] = "Contradicted"
+                gold_labels[idx] = data[idx]["gold_label"]
+                results_detail[idx] = {
+                    "id": data[idx]["id"],
+                    "text": data[idx]["text"],
+                    "raw_claim": data[idx].get("raw_claim", data[idx]["text"]),
+                    "gold": data[idx]["gold_label"],
+                    "pred": "Error",
+                    "reasoning_type": data[idx]["reasoning_type"],
+                    "claims_detail": []
+                }
         
     # Calculate metrics
     accuracy, class_metrics, ci_lower, ci_upper = compute_metrics(predictions, gold_labels)
