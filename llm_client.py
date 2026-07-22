@@ -11,14 +11,14 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("llm_client")
 
 class LLMClient:
-    def __init__(self):
-        self.provider = os.getenv("LLM_PROVIDER", "azure").lower()
+    def __init__(self, provider: str = None, model: str = None, base_url: str = None):
+        self.provider = (provider or os.getenv("LLM_PROVIDER", "azure")).lower()
         
         if self.provider == "azure":
             api_key = os.getenv("AZURE_OPENAI_API_KEY")
             api_version = os.getenv("AZURE_OPENAI_API_VERSION", "2025-03-01-preview")
             endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
-            self.model = os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME", "gpt-5.1-mini")
+            self.model = model or os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME", "azure-4.1-mini")
             
             logger.info(f"Initializing Azure OpenAI Client (Endpoint: {endpoint}, Model: {self.model})")
             self.client = AzureOpenAI(
@@ -27,8 +27,8 @@ class LLMClient:
                 azure_endpoint=endpoint
             )
         else:
-            base_url = os.getenv("LOCAL_LLM_API_BASE", "http://localhost:1234/v1")
-            self.model = os.getenv("LOCAL_LLM_MODEL_NAME", "qwen2.5-7b-instruct")
+            base_url = base_url or os.getenv("LOCAL_LLM_API_BASE", "http://localhost:1234/v1")
+            self.model = model or os.getenv("LOCAL_LLM_MODEL_NAME", "google/gemma-4-e4b")
             
             logger.info(f"Initializing Local OpenAI Client (Base URL: {base_url}, Model: {self.model})")
             self.client = OpenAI(
@@ -42,7 +42,8 @@ class LLMClient:
             messages.append({"role": "system", "content": system_prompt})
         messages.append({"role": "user", "content": prompt})
 
-        is_reasoning = "o1" in self.model.lower() or "o3" in self.model.lower() or "gpt-5" in self.model.lower()
+        model_lower = self.model.lower()
+        is_reasoning = any(k in model_lower for k in ["o1", "o3", "gpt-5", "azure-5", "5-mini"])
         
         kwargs = {
             "model": self.model,
@@ -51,24 +52,33 @@ class LLMClient:
         
         if is_reasoning:
             kwargs["max_completion_tokens"] = max(max_tokens, 4096)
+            # gpt-5/azure-5 models require temperature=1.0 or omit temperature
         else:
             kwargs["temperature"] = temperature
             kwargs["max_tokens"] = max_tokens
 
         if json_mode:
-            # Azure OpenAI and LM Studio support response_format
             kwargs["response_format"] = {"type": "json_object"}
 
         try:
             response = self.client.chat.completions.create(**kwargs)
             return response.choices[0].message.content
         except Exception as e:
+            # Fallback if response_format is not supported by local model
+            if json_mode and "response_format" in kwargs:
+                logger.warning(f"Retrying generation without response_format due to error: {e}")
+                kwargs.pop("response_format", None)
+                try:
+                    response = self.client.chat.completions.create(**kwargs)
+                    return response.choices[0].message.content
+                except Exception as e2:
+                    logger.error(f"Error during fallback LLM generation: {e2}")
+                    raise e2
             logger.error(f"Error during LLM generation: {e}")
             raise e
 
     def generate_json(self, prompt: str, system_prompt: str = None, temperature: float = 0.2, max_tokens: int = 4096) -> dict:
         """Helper to generate and parse JSON directly, with fallback if not valid JSON."""
-        # Append instructions for JSON format if system_prompt is not explicitly directing it
         json_instruction = "\nIMPORTANT: You must respond with a raw JSON object ONLY. Do not wrap it in markdown code blocks like ```json or similar formatting."
         
         full_prompt = prompt
@@ -91,7 +101,6 @@ class LLMClient:
             return json.loads(res_text)
         except json.JSONDecodeError as e:
             logger.error(f"Failed to parse JSON response: {res_text}. Error: {e}")
-            # Try regex recovery
             import re
             match = re.search(r"\{.*\}", res_text, re.DOTALL)
             if match:
@@ -101,11 +110,10 @@ class LLMClient:
                     pass
             raise e
 
-# Singleton instance
 _client_instance = None
 
-def get_llm_client() -> LLMClient:
+def get_llm_client(provider: str = None, model: str = None, base_url: str = None) -> LLMClient:
     global _client_instance
-    if _client_instance is None:
-        _client_instance = LLMClient()
+    if provider is not None or model is not None or _client_instance is None:
+        _client_instance = LLMClient(provider=provider, model=model, base_url=base_url)
     return _client_instance

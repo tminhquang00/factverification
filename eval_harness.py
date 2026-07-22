@@ -206,8 +206,14 @@ def run_pipeline_verification(claim: str, triples: list, pipeline, dataset: str)
 def main():
     parser = argparse.ArgumentParser(description="Public Fact Verification Baseline Evaluation Harness")
     parser.add_argument("--dataset", type=str, default="factkg", choices=["factkg", "fever", "codex", "metaqa"], help="Dataset to run on")
-    parser.add_argument("--method", type=str, default="closed_book_llm", choices=["closed_book_llm", "context_llm", "pipeline"], help="Verification method")
+    parser.add_argument("--method", type=str, default="pipeline", choices=["closed_book_llm", "context_llm", "pipeline"], help="Verification method")
     parser.add_argument("--limit", type=int, default=10, help="Limit number of items to evaluate")
+    parser.add_argument("--model_name", type=str, default=None, help="LLM model name (e.g. azure-4.1-mini, azure-5-mini, google/gemma-4-e4b)")
+    parser.add_argument("--provider", type=str, default=None, choices=["azure", "local"], help="LLM provider")
+    parser.add_argument("--oracle_linking", action="store_true", help="Enable Experiment 1: Oracle Entity/Relation Linking")
+    parser.add_argument("--decontextualize", action="store_true", help="Enable Experiment 3: CoVe-style factored multi-hop decontextualization")
+    parser.add_argument("--smooth_calibration", action="store_true", help="Enable Experiment 4: Continuous confidence score calibration & smoothing")
+    parser.add_argument("--output_file", type=str, default=None, help="Path to write JSON evaluation output")
     args = parser.parse_args()
 
     # Reject structured methods on FEVER
@@ -216,7 +222,7 @@ def main():
         return
 
     # Get the LLM Client
-    llm_client = get_llm_client()
+    llm_client = get_llm_client(provider=args.provider, model=args.model_name)
     
     # Initialize adapter
     if args.dataset == "factkg":
@@ -236,13 +242,13 @@ def main():
     pipeline = None
     if args.method == "pipeline":
         if args.dataset == "codex":
-            pipeline = VerificationPipeline(kg_path="data/codex_graph.json")
+            pipeline = VerificationPipeline(kg_path="data/codex_graph.json", llm_client=llm_client, oracle_linking=args.oracle_linking, decontextualize=args.decontextualize, smooth_calibration=args.smooth_calibration)
         elif args.dataset == "metaqa":
-            pipeline = VerificationPipeline(kg_path="data/metaqa_graph.json")
+            pipeline = VerificationPipeline(kg_path="data/metaqa_graph.json", llm_client=llm_client, oracle_linking=args.oracle_linking, decontextualize=args.decontextualize, smooth_calibration=args.smooth_calibration)
         else:
-            pipeline = VerificationPipeline()
+            pipeline = VerificationPipeline(llm_client=llm_client, oracle_linking=args.oracle_linking, decontextualize=args.decontextualize, smooth_calibration=args.smooth_calibration)
         
-    logger.info(f"Running evaluation on {len(data)} items from {args.dataset} using {args.method}...")
+    logger.info(f"Running evaluation on {len(data)} items from {args.dataset} using {args.method} (Model: {llm_client.model}, Provider: {llm_client.provider})...")
     
     predictions = []
     gold_labels = []
@@ -294,11 +300,12 @@ def main():
     
     # Print results
     print("\n" + "="*60)
-    print(f"EVALUATION REPORT: {args.dataset.upper()} - {args.method.upper()}")
+    print(f"EVALUATION REPORT: {args.dataset.upper()} - {args.method.upper()} (Model: {llm_client.model})")
     print("="*60)
     print(f"Total Evaluated: {len(data)}")
     print(f"Accuracy: {accuracy:.2%} (95% CI: [{ci_lower:.2%}, {ci_upper:.2%}])\n")
     
+    coverage, selective_accuracy = 1.0, accuracy
     if args.method == "pipeline" and args.dataset == "factkg":
         covered_items = [r for r in results_detail if r["raw_pred"] in ["Supported", "Contradicted"]]
         coverage = len(covered_items) / len(results_detail) if results_detail else 0.0
@@ -336,6 +343,28 @@ def main():
     if err_count == 0:
         print("None! All predictions were correct.")
     print("="*60 + "\n")
+
+    # Save output file if specified
+    if args.output_file:
+        os.makedirs(os.path.dirname(args.output_file), exist_ok=True)
+        out_data = {
+            "dataset": args.dataset,
+            "method": args.method,
+            "model_name": llm_client.model,
+            "provider": llm_client.provider,
+            "oracle_linking": args.oracle_linking,
+            "decontextualize": args.decontextualize,
+            "smooth_calibration": args.smooth_calibration,
+            "total_evaluated": len(data),
+            "accuracy": accuracy,
+            "ci_95": [ci_lower, ci_upper],
+            "coverage": coverage,
+            "selective_accuracy": selective_accuracy,
+            "results_detail": results_detail
+        }
+        with open(args.output_file, "w", encoding="utf-8") as f:
+            json.dump(out_data, f, indent=2)
+        logger.info(f"Saved benchmark results to {args.output_file}")
 
 if __name__ == "__main__":
     main()

@@ -1,0 +1,13 @@
+{
+  "course_id": 1.0,
+  "title": 1.0,
+  "prerequisites": 1.0,
+  "credits": 1.0,
+  "school": 1.0,
+  "coordinator": 1.0,
+  "coordinator_email": 1.0,
+  "starred_actors": 0.6176,
+  "has_genre": 0.7647,
+  "release_year": 0.7647,
+  "directed_by": 0.7353
+}

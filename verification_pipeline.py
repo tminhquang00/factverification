@@ -65,11 +65,14 @@ class VerificationPipeline:
     - Stage 4: Semantic dispatch logic (CWA vs OWA routing) evaluating against KGStore.
     - Stage 5 / Engine: Calibrated selective abstention downgrading low-confidence decisions to Not-in-KG.
     """
-    def __init__(self, kg_path="data/rmit_graph.json"):
+    def __init__(self, kg_path="data/rmit_graph.json", llm_client=None, oracle_linking=False, decontextualize=False, smooth_calibration=False):
         """Initializes the verification pipeline, loads graph store, and builds lookup index."""
         self.store = get_kg_store(kg_path)
-        self.llm_client = get_llm_client()
+        self.llm_client = llm_client or get_llm_client()
         self.bi_encoder = get_bi_encoder()
+        self.oracle_linking = oracle_linking
+        self.decontextualize = decontextualize
+        self.smooth_calibration = smooth_calibration
         self.entity_index = {}
         self.entity_keys_list = []
         self.entity_codes_list = []
@@ -255,6 +258,16 @@ class VerificationPipeline:
         relation = claim.get("relation")
         object_raw = claim.get("object")
         claim_type = claim.get("claim_type", "")
+
+        # Oracle linking override for Experiment 1
+        if getattr(self, "oracle_linking", False):
+            gold_triple = claim.get("gold_triple") or claim.get("triples", [None])[0] if isinstance(claim.get("triples"), list) and claim.get("triples") else None
+            if gold_triple and len(gold_triple) >= 3:
+                self.last_entity_score = 1.0
+                return str(gold_triple[0]), str(gold_triple[1]), str(gold_triple[2])
+            elif claim.get("gold_subject"):
+                self.last_entity_score = 1.0
+                return str(claim.get("gold_subject")), str(claim.get("gold_relation", relation)), str(claim.get("gold_object", object_raw))
 
         # Link Subject Entity
         subject_code = self.link_entity(subject_raw)
@@ -682,4 +695,14 @@ class VerificationPipeline:
         if subj_code and not re.match(r"^\d{6}$", str(subj_code)):
             entity_score = 1.0
             
-        return float(base_conf * entity_score * decomp_agreement)
+        raw_conf = float(base_conf * entity_score * decomp_agreement)
+
+        # Smooth Calibration (Experiment 4): Continuous score smoothing to avoid confidence=1.0 mass ties
+        if getattr(self, "smooth_calibration", False):
+            # Apply continuous sigmoid-style smoothing over entity score and agreement margin
+            smooth_entity = 0.5 + 0.5 * (1.0 / (1.0 + np.exp(-4 * (entity_score - 0.7))))
+            smooth_agreement = 0.6 + 0.4 * decomp_agreement
+            smoothed_score = float(0.70 * base_conf + 0.20 * smooth_entity + 0.10 * smooth_agreement)
+            return max(0.01, min(0.99, round(smoothed_score, 4)))
+
+        return raw_conf

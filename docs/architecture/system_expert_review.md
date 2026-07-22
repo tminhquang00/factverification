@@ -141,15 +141,18 @@ Rather than assuming a rigid Closed-World (CWA) or Open-World (OWA) assumption, 
 
 ---
 
-### 2. Calibrated Selective Abstention
-To prevent incorrect `Contradicted` flags (which erode administrator trust), Stage 4 outcomes undergo selective abstention calibration:
+### 2. Calibrated Selective Abstention & Continuous Score Smoothing
+To prevent incorrect `Contradicted` flags (which erode administrator trust), Stage 4 outcomes undergo selective abstention calibration and continuous score smoothing:
 
 ```
 Raw Stage 4 Verdict ("Contradicted")
                   │
                   ▼
        [Calculate Confidence] 
-                  │  (Based on relation completeness)
+                  │  (Based on relation completeness & embedding margins)
+                  ▼
+     [Continuous Sigmoid Smoothing]
+                  │  Scales margin to prevent mass ties at 1.0
                   ▼
      [Selective Threshold Sweep]
                   │
@@ -157,10 +160,32 @@ Raw Stage 4 Verdict ("Contradicted")
                   └──► Confidence < θ   ──► Downgrade to "Not-in-KG"
 ```
 
-1. **Confidence Calculation**:
-   - `Supported` has a confidence of $1.0$.
-   - `Contradicted` has a confidence equal to the completeness $C(R)$ of the relation.
-   - `Not-in-KG` has a confidence equal to $1.0 - C(R)$.
+1. **Continuous Score Calibration Formula (Exp 4)**:
+   - Base confidence is smoothed using NLI probabilities and bi-encoder entity similarity scores to avoid step-discontinuities and mass ties at $1.0$:
+     $$S_{\text{cal}} = 0.70 \cdot \text{base\_conf} + 0.20 \cdot \text{smooth\_entity} + 0.10 \cdot \text{smooth\_agreement}$$
+   - `Supported` raw confidence is smoothed around $1.0$, `Contradicted` equals completeness $C(R)$, and `Not-in-KG` equals $1.0 - C(R)$.
 2. **Abstention Decision**: If the verdict is `Contradicted`, it is only reported if the confidence score meets or exceeds a target selective threshold $\theta$:
-   $$\text{Verdict} = \begin{cases} \text{Contradicted} & \text{if } C(R) \ge \theta \\ \text{Not-in-KG} & \text{if } C(R) < \theta \end{cases}$$
-3. **Tuning ($\theta$ budget)**: By adjusting $\theta$, users choose their tolerance for false alarms. Setting $\theta = 0.8$ ensures strict selective filtering, downgrading low-confidence contradictions to `Not-in-KG` (routing to human verification).
+   $$\text{Verdict} = \begin{cases} \text{Contradicted} & \text{if } S_{\text{cal}} \ge \theta \\ \text{Not-in-KG} & \text{if } S_{\text{cal}} < \theta \end{cases}$$
+
+---
+
+## 4. Multi-Model Engine Architecture & Staged Experiment Setup
+
+### A. Multi-Model LLM Execution Setup (`llm_client.py`)
+1. **Azure OpenAI API Integration**:
+   - `azure-4.1-mini`: standard deployment for fast extraction and verification.
+   - `azure-5-mini`: reasoning-effort deployment utilizing `max_completion_tokens` (omitting unsupported `temperature` parameters to prevent HTTP 400 Bad Request errors).
+2. **Local Edge LM Studio Integration**:
+   - `google/gemma-4-e4b`: local quantized model served at `http://localhost:1234/v1`. Implements unconstrained text-to-JSON fallback extraction to handle local model output variations.
+
+### B. Staged Experiment Methodology (Exp 1–4)
+- **Exp 1 — Oracle Linking Upper Bound**: Direct injection of gold entity and relation IDs into Stage 4 to isolate linking errors from graph verification logic.
+- **Exp 2 — Bi-Encoder Neural Entity & Relation Linking**: Dense candidate retrieval using PyTorch `SentenceTransformer("all-MiniLM-L6-v2")` combined with DBpedia/Wikidata surface alias lookups.
+- **Exp 3 — Multi-Hop CoVe Decontextualization**: Factored sub-claim decomposition requiring explicit intermediate bridge entity references prior to graph path traversal on multi-hop datasets (`MetaQA`).
+- **Exp 4 — Continuous Calibration Smoothing**: Continuous sigmoid-smoothed confidence score margins eliminating confidence=1.0 mass ties and producing monotonic risk-coverage curves.
+
+### C. Scaled Benchmark Evaluation Protocol ($n=500$)
+- **Sample Scale**: Evaluation sweeps scaled to **$n=500$ queries** per public dataset (`FactKG`, `CoDEx-S`, `MetaQA`) and full 300-item RMIT dataset.
+- **Label Normalization**: Binary datasets (`FactKG`) map uncertainty outcomes (`Not-in-KG`, `Out-of-scope`) to `Contradicted` to enforce forced-decision evaluation alignment.
+- **Statistical Hygiene**: 1,000-run bootstrap sampling computes **95% Confidence Intervals** for all E2E accuracy metrics.
+- **Metric Separation**: Reports **Coverage** (fraction of resolved in-scope claims) separately from **Selective Accuracy** (accuracy on covered subset).

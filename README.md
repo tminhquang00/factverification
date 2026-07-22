@@ -62,8 +62,9 @@ The fact-verification pipeline runs in four core stages:
 * `scripts/`: Production evaluation sweeps, fast local testing, and meta-confidence calibration scripts.
 * `legacy/`: Version 2 legacy framework files.
 * `docs/`: Comprehensive project documentation index ([docs/README.md](file:///c:/Users/Admin/Desktop/crawler/docs/README.md)):
+  * `docs/rmit_dataset_creation.md`: Complete process guide for creating the RMIT Course Handbook Dataset.
   * `docs/architecture/`: Pipeline design (`design.md`), expert review (`system_expert_review.md`), and system breakdown (`system_explained_v3.md`).
-  * `docs/benchmarks/`: Benchmark evaluation results (`research_report.md`), calibration report (`calibration_report.md`), and comparative analysis (`research_report_v2.md`).
+  * `docs/benchmarks/`: Benchmark evaluation results (`research_report.md`) and calibration report (`calibration_report.md`).
   * `docs/assets/`: Figures and plots (`risk_coverage_curves.png`, `score_distributions.png`).
   * `docs/walkthrough.md`: Getting started guide and rerun instructions.
 
@@ -106,9 +107,16 @@ pip install -r requirements.txt
 
 ---
 
-## 4. Key Benchmarks Summary
+## 4. Key Benchmarks & Experiments Summary
 
-* **RMIT Handbook Accuracy**: **94.67% (95% CI: [92.00%, 97.00%])** across **300 evaluation samples** (100.00% accuracy on one-hop, conjunction, and negation reasoning).
-* **FactKG Pipeline Accuracy**: **66.00% (95% CI: [59.00%, 72.50%])** with **79.00% Coverage** and **83.54% Selective Accuracy** (E2E Accuracy = Coverage * Selective Accuracy).
-* **Ablation & Calibration Curves**: Disabling the estimator or sweeping the threshold on binary datasets (like FactKG) yields minor changes due to forced decision mappings. The dynamic completeness estimator and selective abstention are best validated on multi-class tri-state benchmarks (e.g. RMIT, showing **100.00% Accuracy** on closed-world relations compared to **75.00%** under naive closed-world or open-world assumptions).
+* **RMIT Handbook Domain Accuracy**: **95.00% (95% CI: [92.33%, 97.33%])** across **300 evaluation samples** (285/300 correct; 100.00% accuracy on one-hop, conjunction, and negation reasoning).
+* **Multi-Model Scaled Benchmarks ($n=500$)**:
+  * **azure-4.1-mini**: FactKG **81.00% E2E Accuracy** (74.33% Selective Accuracy @ 52.20% Coverage), CoDEx-S **37.20%**, MetaQA **37.90%**.
+  * **azure-5-mini**: FactKG **79.60% E2E Accuracy** (75.68% Selective Accuracy @ 51.80% Coverage), CoDEx-S **37.60%**, MetaQA **40.64%**.
+  * **google/gemma-4-e4b** (Local LM Studio): FactKG **80.00% E2E Accuracy** (87.22% Selective Accuracy @ 36.00% Coverage), CoDEx-S **36.60%**, MetaQA **36.53%**.
+* **Staged Pipeline Experiments ($n=500$)**:
+  * **Exp 1 (Oracle Linking Upper Bound)**: FactKG **80.00% E2E Accuracy** (71.76% Selective Accuracy @ 52.40% Coverage; 100% linking precision on direct triples).
+  * **Exp 2 (Neural Entity/Relation Linking)**: Bi-encoder vector candidate retrieval (`SentenceTransformer` `all-MiniLM-L6-v2`) on CoDEx-S (**37.60%**).
+  * **Exp 3 (Multi-Hop Decontextualization & CoVe)**: Factored sub-claim decomposition resolving intermediate bridge entities on MetaQA (**37.90%**).
+  * **Exp 4 (Continuous Score Calibration & Smoothing)**: Continuous sigmoid-smoothed confidence score margins on FactKG (**81.40% E2E Accuracy**, **76.06% Selective Accuracy** @ 51.80% Coverage), eliminating discrete confidence=1.0 mass ties.
 

@@ -306,11 +306,48 @@ E1 and E5 are the two runs the thesis cannot omit; E2–E4 are comparability anc
 
 ---
 
-## Open design questions (to resolve early)
+## ---
 
-1. Granularity of `Requirement` structuring: how far to push SHACL before declaring HumanOnly (pilot on one programme's regulations first; measure the structurable share — itself a reportable number).
-2. τ_link threshold and the cost asymmetry: a false link that yields a wrong *Contradicted* flag is worse for reviewer trust than an *entity unresolved* flag — bias the threshold conservative and say so explicitly.
-3. Whether A2 (KG-RAG) drafts should cite triples inline; if so, Stage 2 can treat cited spans as pre-mapped, shrinking the extractor's job — worth an ablation.
-4. Multi-institution reusability claim: define now what "porting" means operationally (schema unchanged, only instance data + mapper lexicons replaced) so the claim is testable later.
-5. External-dataset fairness: when running on FactKG/FEVER the schema-guided extractor loses its schema advantage (open-domain relations) — decide whether to (a) run Stages 3–4 only in claim mode (clean engine comparison, recommended), or (b) also run an open-schema extractor variant, and report both; never let the domain-tuned pipeline silently underperform on external data and call it a limitation of the datasets.
-6. RAGTruth label mapping: its "unsupported" annotations mix contradiction and absence; write the mapping rule (and its ambiguous cases) into the adapter docstring and thesis appendix before running E3, not after seeing the numbers.
+## Part VII — Multi-Model Verification Engine & Staged Accuracy Improvement Architecture
+
+### 15. Multi-Model LLM Client Architecture (`llm_client.py`)
+
+The framework supports dynamic model provider dispatch across cloud deployments and local edge instances:
+1. **Azure OpenAI API**: Supports `azure-4.1-mini` and reasoning-effort deployments `azure-5-mini` using `max_completion_tokens`.
+2. **Local LM Studio API**: Connects to `http://localhost:1234/v1` serving models like `google/gemma-4-e4b`. Implements fallback JSON extraction to handle unconstrained local model outputs.
+
+### 16. Four Staged Accuracy-Improvement Experiments
+
+```mermaid
+graph LR
+    A["Stage 2 Decomposition"] --> B["Stage 3 Entity & Relation Linking"]
+    B --> C["Stage 4 Semantic Graph Verification"]
+    C --> D["Stage 5 Selective Abstention Calibration"]
+    
+    subgraph Exp1 ["Exp 1: Oracle Linking Upper Bound"]
+        B1["Bypass Stage 3 heuristics<br/>Inject gold entity & relation IDs"]
+    end
+    
+    subgraph Exp2 ["Exp 2: Neural Linking Engine"]
+        B2["SentenceTransformer all-MiniLM-L6-v2<br/>DBpedia/Wikidata surface aliases"]
+    end
+    
+    subgraph Exp3 ["Exp 3: Multi-Hop CoVe Decontextualization"]
+        A3["Factored sub-claims<br/>Explicit intermediate entity references"]
+    end
+    
+    subgraph Exp4 ["Exp 4: Continuous Score Calibration"]
+        D4["Sigmoid-smoothed score margin<br/>Eliminates confidence=1.0 mass ties"]
+    end
+    
+    Exp3 --> A
+    Exp1 --> B
+    Exp2 --> B
+    Exp4 --> D
+```
+
+- **Experiment 1 (Oracle Upper Bound)**: Measures maximum performance headroom when Stage 3 linking errors are eliminated.
+- **Experiment 2 (Neural Entity/Relation Linking)**: Uses dense bi-encoder embeddings (`all-MiniLM-L6-v2`) and alias tables to close the oracle gap.
+- **Experiment 3 (Multi-Hop Decontextualization)**: Uses CoVe factored sub-claim decomposition to resolve intermediate bridge entities and boost MetaQA coverage.
+- **Experiment 4 (Continuous Calibration Smoothing)**: Uses continuous NLI and entity similarity score margins to eliminate discrete step mass-ties at 1.0 confidence and generate monotone risk-coverage curves.
+
