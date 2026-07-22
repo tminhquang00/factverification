@@ -213,6 +213,7 @@ def main():
     parser.add_argument("--oracle_linking", action="store_true", help="Enable Experiment 1: Oracle Entity/Relation Linking")
     parser.add_argument("--decontextualize", action="store_true", help="Enable Experiment 3: CoVe-style factored multi-hop decontextualization")
     parser.add_argument("--smooth_calibration", action="store_true", help="Enable Experiment 4: Continuous confidence score calibration & smoothing")
+    parser.add_argument("--output_file", type=str, default=None, help="Path to write JSON evaluation output")
     parser.add_argument("--max_workers", type=int, default=10, help="Number of parallel worker threads for LLM calls")
     args = parser.parse_args()
 
