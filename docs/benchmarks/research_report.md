@@ -82,7 +82,7 @@ Headline performance across all datasets is reported across three explicit linki
 | **L1** | Bi-encoder retrieval (`all-MiniLM-L6-v2` + alias dictionaries) | Realistic deployment; condition under which C4 is argued |
 | **L2** | Heuristic substring + token overlap | Naive baseline ablation |
 
-### Headline Table (Frozen Protocol Datasets)
+### Headline & Multi-Model Engine Comparison Table
 
 | LLM Engine | Dataset | Sample Size ($n$) | Linking Axis | E2E Accuracy | 95% Confidence Interval | Coverage | Selective Accuracy |
 |:---|:---|:---:|:---:|:---:|:---:|:---:|:---:|
@@ -92,8 +92,14 @@ Headline performance across all datasets is reported across three explicit linki
 | **azure-4.1-mini** | **FactKG** | 500 | **L1** | **81.00%** | [77.40%, 84.40%] | 52.20% | **74.33%** |
 | **azure-4.1-mini** | **CoDEx-S** | 500 | **L1** | **37.20%** | [33.00%, 41.40%] | 100.00% | **37.20%** |
 | **azure-4.1-mini** | **MetaQA** | 219 | **L1** | **37.90%** | [31.50%, 44.30%] | 100.00% | **37.90%** |
+| **google/gemma-4-e4b** | **Catalog2** | 200 | **L1** | **66.00%** | [58.00%, 72.67%] | 100.00% | **66.00%** |
+| **google/gemma-4-e4b** | **FactKG** | 500 | **L1** | **80.00%** | [76.40%, 83.60%] | 36.00% | **87.22%** |
+| **google/gemma-4-e4b** | **CoDEx-S** | 500 | **L1** | **36.60%** | [32.40%, 40.80%] | 100.00% | **36.60%** |
+| **google/gemma-4-e4b** | **MetaQA** | 219 | **L1** | **36.53%** | [30.10%, 43.00%] | 100.00% | **36.53%** |
 
+*Note on local deployment*: Evaluated using LM Studio on `http://localhost:1234/v1` (`LOCAL_LLM_MODEL_NAME=google/gemma-4-e4b`).
 *Note on FEVER*: Excluded from triple verification (`N/A (unstructured text evidence)`).
+
 
 ---
 

@@ -61,3 +61,18 @@ To resolve the mass-tie problem at confidence $\approx 1.0$, Stage 4 incorporate
 $$S_{\text{cal}} = 0.70 \cdot \text{base\_conf} + 0.20 \cdot \text{smooth\_entity} + 0.10 \cdot \text{smooth\_nli\_margin}$$
 
 Adding this continuous covariate breaks ties deterministically among items with exact entity matches ($S=1.0$) and closed relations ($C(R)=1.0$), ensuring smooth risk-coverage curves without low-coverage score inversion.
+
+---
+
+## 5. Multi-Model Engine Execution Setup
+
+The pipeline supports both cloud endpoints and local edge LLMs via `llm_client.py`:
+
+1. **Azure OpenAI API (`azure-4.1-mini`)**:
+   - Remote endpoint configured via `AZURE_OPENAI_ENDPOINT` and `AZURE_OPENAI_DEPLOYMENT_NAME`.
+   - Uses `response_format={"type": "json_object"}` for structured JSON claim extraction.
+
+2. **Local LM Studio (`google/gemma-4-e4b`)**:
+   - Edge deployment hosted locally at `http://localhost:1234/v1` (`LOCAL_LLM_MODEL_NAME=google/gemma-4-e4b`).
+   - Automatically bypasses `response_format` JSON schema parameters to prevent HTTP 400 Bad Request errors, relying on prompt instructions and fallback regex parsers.
+
