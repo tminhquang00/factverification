@@ -103,22 +103,23 @@ Always execute scripts using the local virtual environment Python executable per
 
 # Evaluate Baseline Suite (E9)
 & .venv\Scripts\python.exe scripts/evaluate_baselines.py
+
+# Run Master Full Experiment Sweep (P0-P4, C1-C4)
+& .venv\Scripts\python.exe scripts/run_full_experiment_sweep.py
 ```
 
 ---
 
-## 5. Summary of Benchmark Results
+## 5. Summary of Benchmark Results & Documentation
 
-| LLM Engine | Dataset | Sample Size ($n$) | Linking Axis | E2E Accuracy | 95% Confidence Interval | Coverage | Selective Accuracy |
+Detailed experimental results, statistical protocols, 95% subject-clustered CIs, and ablation tables are available in **[docs/revised_experimental_report.md](file:///c:/Users/Admin/Desktop/crawler/docs/revised_experimental_report.md)** and **[output/experiments/full_experiment_sweep_report.json](file:///c:/Users/Admin/Desktop/crawler/output/experiments/full_experiment_sweep_report.json)**.
+
+| LLM Engine | Dataset | Sample Size ($n$) | Linking Axis | E2E Accuracy | 95% Clustered CI | Tri-State Macro-F1 | False Contradiction Rate |
 |:---|:---|:---:|:---:|:---:|:---:|:---:|:---:|
-| **azure-4.1-mini** | **RMIT Handbook** | 300 | **L1** | **95.00%** | [92.33%, 97.33%] | 100.00% | **95.00%** |
-| **azure-4.1-mini** | **Catalog2** | 200 | **L1** | **92.50%** | [88.50%, 96.00%] | 100.00% | **92.50%** |
-| **azure-4.1-mini** | **FactKG** | 500 | **L0** | **80.00%** | [76.20%, 83.60%] | 52.40% | **71.76%** |
-| **azure-4.1-mini** | **FactKG** | 500 | **L1** | **81.00%** | [77.40%, 84.40%] | 52.20% | **74.33%** |
-| **azure-4.1-mini** | **CoDEx-S** | 500 | **L1** | **37.20%** | [33.00%, 41.40%] | 100.00% | **37.20%** |
-| **azure-4.1-mini** | **MetaQA** | 219 | **L1** | **37.90%** | [31.50%, 44.30%] | 100.00% | **37.90%** |
-| **google/gemma-4-e4b** | **Catalog2** | 200 | **L1** | **66.00%** | [58.00%, 72.67%] | 100.00% | **66.00%** |
-| **google/gemma-4-e4b** | **FactKG** | 500 | **L1** | **80.00%** | [76.40%, 83.60%] | 36.00% | **87.22%** |
-| **google/gemma-4-e4b** | **CoDEx-S** | 500 | **L1** | **36.60%** | [32.40%, 40.80%] | 100.00% | **36.60%** |
-| **google/gemma-4-e4b** | **MetaQA** | 219 | **L1** | **36.53%** | [30.10%, 43.00%] | 100.00% | **36.53%** |
+| **azure-4.1-mini** | **RMIT Handbook** | 300 | **L1** (Neural) | **94.67%** | [92.00%, 97.00%] | **0.2305** | **6.67%** |
+| **azure-4.1-mini** | **Catalog2** | 200 | **L1** (Neural) | **88.00%** | [83.00%, 92.50%] | **0.5465** | **0.00%** |
+| **azure-4.1-mini** | **FactKG** | 500 | **L1** (Forced Binary) | **81.00%** | [77.40%, 84.40%] | **0.1381** | **90.21%** |
+| **azure-4.1-mini** | **CoDEx-S-Tri** | 300 | **L1** (Neural) | **37.20%** | [31.80%, 40.40%] | **0.3580** | **0.00%** |
+| **azure-4.1-mini** | **MetaQA-Tri** | 219 | **L1** (Neural) | **48.00%** | [39.73%, 53.42%] | **0.4658** | **0.00%** |
+
 

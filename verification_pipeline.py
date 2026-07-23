@@ -2,6 +2,7 @@ import os
 import re
 import json
 import logging
+import threading
 import numpy as np
 from kg_store import get_kg_store
 from llm_client import get_llm_client
@@ -13,6 +14,7 @@ class BiEncoderResolver:
     def __init__(self):
         self.model = None
         self.vectorizer = None
+        self._encode_lock = threading.Lock()
         self._load_model()
         
     def _load_model(self):
@@ -36,7 +38,8 @@ class BiEncoderResolver:
         if isinstance(texts, str):
             texts = [texts]
         if self.model is not None:
-            embeddings = self.model.encode(texts, convert_to_numpy=True, normalize_embeddings=True)
+            with getattr(self, "_encode_lock", threading.Lock()):
+                embeddings = self.model.encode(texts, convert_to_numpy=True, normalize_embeddings=True)
             return embeddings.astype(np.float32)
         else:
             from sklearn.feature_extraction.text import TfidfVectorizer
@@ -73,6 +76,7 @@ class VerificationPipeline:
         self.oracle_linking = oracle_linking
         self.decontextualize = decontextualize
         self.smooth_calibration = smooth_calibration
+        self._index_lock = threading.Lock()
         self.entity_index = {}
         self.entity_keys_list = []
         self.entity_codes_list = []
@@ -84,9 +88,10 @@ class VerificationPipeline:
 
     def build_entity_index(self):
         """Builds a lookup index and bi-encoder embedding cache mapping titles to entity IDs."""
-        self.entity_index = {}
-        self.entity_keys_list = []
-        self.entity_codes_list = []
+        with getattr(self, "_index_lock", threading.Lock()):
+            self.entity_index = {}
+            self.entity_keys_list = []
+            self.entity_codes_list = []
         
         for code, course in self.store.courses.items():
             self.entity_index[code] = code
@@ -150,16 +155,20 @@ class VerificationPipeline:
 
         # Bi-encoder cosine similarity top-k search
         if self.entity_embeddings is not None and len(self.entity_keys_list) > 0:
-            query_emb = self.bi_encoder.encode([raw_text])
-            sims = np.dot(self.entity_embeddings, query_emb.T).squeeze()
-            if sims.ndim == 0:
-                sims = np.array([float(sims)])
-            best_idx = int(np.argmax(sims))
-            best_score = float(sims[best_idx])
-            
-            if best_score >= 0.35:
-                self.last_entity_score = max(0.2, min(1.0, best_score))
-                return self.entity_codes_list[best_idx]
+            try:
+                query_emb = self.bi_encoder.encode([raw_text])
+                if query_emb is not None and getattr(query_emb, "shape", [0])[0] > 0 and getattr(self.entity_embeddings, "shape", [0])[0] == len(self.entity_keys_list):
+                    sims = np.dot(self.entity_embeddings, query_emb.T).squeeze()
+                    if sims.ndim == 0:
+                        sims = np.array([float(sims)])
+                    best_idx = int(np.argmax(sims))
+                    best_score = float(sims[best_idx])
+                    
+                    if best_score >= 0.35 and 0 <= best_idx < len(self.entity_codes_list):
+                        self.last_entity_score = max(0.2, min(1.0, best_score))
+                        return self.entity_codes_list[best_idx]
+            except Exception as e:
+                logger.debug(f"Bi-encoder search fallback: {e}")
 
         # Token overlap fallback
         best_match = None
