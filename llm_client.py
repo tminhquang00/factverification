@@ -57,8 +57,9 @@ class LLMClient:
             kwargs["temperature"] = temperature
             kwargs["max_tokens"] = max_tokens
 
-        if json_mode:
+        if json_mode and self.provider == "azure":
             kwargs["response_format"] = {"type": "json_object"}
+
 
         try:
             response = self.client.chat.completions.create(**kwargs)
