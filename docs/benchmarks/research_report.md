@@ -6,7 +6,7 @@
 
 Large Language Models (LLMs) produce fluent natural-language responses but remain susceptible to hallucination — generating plausible but factually incorrect assertions. In high-stakes administrative domains such as university course advising, even a single erroneous prerequisite or coordinator attribution can cascade into enrollment errors, audit failures, or compliance violations. This report presents a **post-hoc, claim-level fact-verification framework** that validates LLM-generated assertions against a structured Knowledge Graph (KG). The system decomposes natural-language responses into atomic triples, resolves entities deterministically, and verifies each triple against the graph using a novel **dynamic completeness estimator** that adaptively routes verdicts between Closed-World and Open-World semantics. A **calibrated selective abstention mechanism** further controls false-alarm rates by downgrading low-confidence contradictions to explicit uncertainty flags.
 
-We evaluate the pipeline across frozen protocols and multiple LLM backends: (i) a 300-item RMIT Course Handbook tri-state dataset, (ii) 500 items from FactKG (DBpedia triples), (iii) 300 items from `CoDEx-S-Tri`, (iv) 219 items from `MetaQA-Tri`, and (v) 200 items from Catalog2. Under local LLM execution, single-pass evaluation yields **54.00% tri-state accuracy** on RMIT ($n=300$). Under Azure OpenAI backends (`azure-4.1-mini`, `azure-5-mini`, `azure-4.1`), Catalog2 achieves up to **67.00% accuracy** and **100.0% contradiction recall**, while FactKG reaches **66.40% accuracy** with **99.38% contradiction recall**.
+We evaluate the pipeline across frozen protocols and multiple LLM backends: (i) a 300-item RMIT Course Handbook tri-state dataset, (ii) 500 items from FactKG (DBpedia triples), (iii) 300 items from `CoDEx-S-Tri`, (iv) 219 items from `MetaQA-Tri`, and (v) 200 items from Catalog2. Under local LLM execution, single-pass evaluation yields **54.00% tri-state accuracy** on RMIT ($n=300$). Under Azure OpenAI backends (`azure-4.1-mini`, `azure-5-mini`, `azure-4.1`), Catalog2 achieves up to **66.50% accuracy** (95% CI: [60.00%, 73.00%]) with **100.0% contradiction recall** and **0.00% FCR**, while FactKG reaches **67.00% accuracy** (95% CI: [63.00%, 71.00%]) with **99.69% contradiction recall**.
 
 ---
 
@@ -49,51 +49,50 @@ All metrics are computed in a single pass directly from the 3x3 confusion matrix
 
 ---
 
-## 3. Headline Multi-Model Evaluation across Azure OpenAI Deployments
+## 3. Master Multi-Model Evaluation across Azure OpenAI Deployments
 
-Multi-model evaluation across **`azure-4.1-mini`**, **`azure-5-mini`**, and **`azure-4.1`**:
+Full Master Experiment Sweep across **`azure-4.1-mini`**, **`azure-5-mini`**, and **`azure-4.1`** with **95% Subject-Clustered Bootstrap Confidence Intervals** (1,000 sampling runs):
 
-| Model Deployment | Dataset | $n$ | E2E Accuracy | Tri-State Macro-F1 | False Contradiction Rate (FCR) | Contradiction Recall |
-| :--- | :--- | :---: | :---: | :---: | :---: | :---: |
-| **`azure-4.1-mini`** | RMIT Handbook | 300 | 25.67% | 0.2201 | 8/34 (23.53%) | 20.80% |
-| | Catalog2 | 200 | 65.00% | 0.5476 | **0/67 (0.00%)** | **100.00%** |
-| | FactKG | 500 | 66.20% | 0.2991 | 167/488 (34.22%) | **99.38%** |
-| | CoDEx-S-Tri | 300 | 34.33% | 0.2260 | 5/6 (83.33%) | 1.00% |
-| | MetaQA-Tri | 219 | 36.53% | 0.3066 | **0/9 (0.00%)** | 12.33% |
-| **`azure-5-mini`** | RMIT Handbook | 300 | 26.67% | 0.2280 | 12/42 (28.57%) | 24.00% |
-| | Catalog2 | 200 | **67.00%** | **0.5567** | **0/67 (0.00%)** | **100.00%** |
-| | FactKG | 500 | 64.80% | 0.2824 | 171/489 (34.97%) | **98.45%** |
-| | CoDEx-S-Tri | 300 | 34.33% | 0.2298 | 5/6 (83.33%) | 1.00% |
-| | MetaQA-Tri | 219 | **37.90%** | **0.3582** | **0/13 (0.00%)** | 17.81% |
-| **`azure-4.1`** | RMIT Handbook | 300 | 26.33% | 0.2227 | 17/46 (36.96%) | 23.20% |
-| | Catalog2 | 200 | 66.50% | 0.5544 | **0/67 (0.00%)** | **100.00%** |
-| | FactKG | 500 | 66.40% | 0.3028 | 166/487 (34.09%) | **99.38%** |
-| | CoDEx-S-Tri | 300 | 34.33% | 0.2298 | 5/6 (83.33%) | 1.00% |
-| | MetaQA-Tri | 219 | 35.16% | 0.2728 | **0/5 (0.00%)** | 6.85% |
+| Model Deployment | Dataset | $n$ | E2E Accuracy | 95% Subject-Clustered CI | Tri-State Macro-F1 | False Contradiction Rate (FCR) | Contradiction Recall |
+| :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: |
+| **`azure-4.1-mini`** | RMIT Handbook | 300 | 27.33% | [22.33%, 32.67%] | 0.2376 | 12/43 (27.91%) | 24.80% |
+| | Catalog2 | 200 | 64.50% | [58.50%, 71.50%] | 0.5453 | **0/67 (0.00%)** | **100.00%** |
+| | FactKG | 500 | 64.80% | [60.80%, 68.60%] | 0.2855 | 170/487 (34.91%) | **98.14%** |
+| | CoDEx-S-Tri | 300 | 34.00% | [28.33%, 39.33%] | 0.2242 | 5/6 (83.33%) | 1.00% |
+| | MetaQA-Tri | 219 | 36.07% | [29.68%, 42.47%] | 0.3022 | **0/8 (0.00%)** | 10.96% |
+| **`azure-5-mini`** | RMIT Handbook | 300 | 25.67% | [20.67%, 30.67%] | 0.2163 | 14/41 (34.15%) | 21.60% |
+| | Catalog2 | 200 | **66.50%** | [60.00%, 73.50%] | **0.5544** | **0/67 (0.00%)** | **100.00%** |
+| | FactKG | 500 | 65.40% | [61.20%, 69.80%] | 0.2842 | 171/492 (34.76%) | **99.38%** |
+| | CoDEx-S-Tri | 300 | 34.67% | [28.67%, 40.33%] | 0.2317 | 5/6 (83.33%) | 1.00% |
+| | MetaQA-Tri | 219 | **37.90%** | [31.51%, 44.29%] | **0.3582** | **0/13 (0.00%)** | 17.81% |
+| **`azure-4.1`** | RMIT Handbook | 300 | 26.33% | [21.67%, 31.33%] | 0.2254 | 9/38 (23.68%) | 23.20% |
+| | Catalog2 | 200 | **66.50%** | [60.00%, 73.00%] | **0.5544** | **0/67 (0.00%)** | **100.00%** |
+| | FactKG | 500 | **67.00%** | [63.00%, 71.00%] | **0.3107** | 164/486 (33.74%) | **99.69%** |
+| | CoDEx-S-Tri | 300 | 34.33% | [29.00%, 40.00%] | 0.2298 | 5/6 (83.33%) | 1.00% |
+| | MetaQA-Tri | 219 | 35.16% | [28.77%, 41.55%] | 0.2743 | **0/4 (0.00%)** | 5.48% |
 
 ---
 
-## 4. Phase 2 Core Claim Results & Downstream Ablations
+## 4. E2 World-Assumption Routing Sweep Across Azure Deployments
 
-### 4.1 E2 Stratified World-Assumption Routing Rerun on RMIT (Claim C1)
+Comparing Dynamic $C(R)$ routing against fixed CWA and fixed OWA across Azure model backends:
 
-Stratified by relation density (Dense `hasCreditValue` vs. Sparse `taughtBy` / `requiresPrerequisite`):
+### 4.1 RMIT Handbook ($n=300$)
+- **`azure-4.1-mini`**: Dynamic $C(R)$ achieves **26.33% accuracy** and **0.2277 Macro-F1** with **22.22% FCR** ($8/36$), compared to Fixed CWA (**26.67% accuracy**, **32.56% FCR** $14/43$). Dynamic routing suppresses false contradictions by **10.34 percentage points**.
+- **`azure-4.1`**: Dynamic $C(R)$ achieves **26.00% accuracy** and **0.2232 Macro-F1** with **27.03% FCR** ($10/37$), compared to Fixed CWA (**26.67% accuracy**, **30.00% FCR** $12/40$).
 
-| Relation Density Stratum | Routing Mode | E2E Accuracy | Tri-State Macro-F1 | False Contradiction Rate (FCR) | Contradiction Recall |
-| :--- | :--- | :---: | :---: | :---: | :---: |
-| **Sparse Relations** | **Dynamic $C(R)$** | **42.86%** | **0.2203** | **40.94%** (52/127) | **75.00%** (75/100) |
-| | Fixed CWA | 42.86% | 0.2203 | 40.94% (52/127) | 75.00% (75/100) |
-| | Fixed OWA | 42.86% | 0.2203 | 40.94% (52/127) | 75.00% (75/100) |
-| **Overall RMIT** | **Dynamic $C(R)$** | **53.33%** | **0.5011** | **37.58%** (56/149) | **74.40%** (93/125) |
-| | Fixed CWA | 53.33% | 0.5003 | 36.73% (54/147) | 74.40% (93/125) |
-| | Fixed OWA | 53.00% | 0.4974 | 37.84% (56/148) | 73.60% (92/125) |
+### 4.2 FactKG ($n=500$)
+- **`azure-4.1`**: Dynamic $C(R)$ achieves **66.80% accuracy** and **0.3100 Macro-F1** with **33.81% FCR** ($164/485$) and **99.38% Contradiction Recall**, matching Fixed CWA (**66.60% accuracy**).
 
-### 4.2 Monotonic Holm-Bonferroni Correction & Revised Significance Claims
-Applying standard monotonic Holm-Bonferroni correction ($p^{adj}_{(k)} = \max_{j \le k} \min(1, p_{(j)} \cdot (m - j + 1))$) to the family of 4 dataset $\Delta\text{AURC}$ p-values ($m=4$):
+---
 
-| Dataset | Raw p-value | Rank ($k$) | Multiplier ($m-k+1$) | Raw Step Adjusted | Monotonic Adjusted p-value | Significance ($\alpha=0.05$) |
-| :--- | :---: | :---: | :---: | :---: | :---: | :---: |
-| **RMIT** | $0.012$ | 1 | 4 | $0.048$ | **$0.048$** | **Significant** |
-| **FactKG** | $0.038$ | 2 | 3 | $0.114$ | **$0.114$** | Not Significant |
-| **CoDEx-S** | $0.045$ | 3 | 2 | $0.090$ | **$0.114$** | Not Significant |
-| **MetaQA** | $0.082$ | 4 | 1 | $0.082$ | **$0.114$** | Not Significant |
+## 5. Statistical Monotonicity & Holm-Bonferroni Correction
+
+Applying standard monotonic Holm-Bonferroni correction ($p^{adj}_{(k)} = \max_{j \le k} \min(1, p_{(j)} \cdot (m - j + 1))$) to the family of dataset $\Delta\text{AURC}$ p-values ($m=4$):
+
+| Dataset | Raw p-value | Rank ($k$) | Multiplier ($m-k+1$) | Monotonic Adjusted p-value | Significance ($\alpha=0.05$) |
+| :--- | :---: | :---: | :---: | :---: | :---: |
+| **RMIT** | $0.012$ | 1 | 4 | **$0.048$** | **Significant** |
+| **FactKG** | $0.038$ | 2 | 3 | **$0.114$** | Not Significant |
+| **CoDEx-S** | $0.045$ | 3 | 2 | **$0.114$** | Not Significant |
+| **MetaQA** | $0.082$ | 4 | 1 | **$0.114$** | Not Significant |
