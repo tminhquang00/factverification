@@ -64,7 +64,7 @@ def run_e01_shuffled_kg(dataset_name, adapter, pipeline, limit=500):
         predictions.append(pred)
         gold_labels.append(gold)
         
-    acc, _, ci_low, ci_high = compute_metrics(predictions, gold_labels)
+    acc, _, ci_low, ci_high, _n_scored = compute_metrics(predictions, gold_labels)
     return {"accuracy": acc, "ci_95": [ci_low, ci_high], "n": len(data)}
 
 def run_e02_chance_floors(data, dataset_name):

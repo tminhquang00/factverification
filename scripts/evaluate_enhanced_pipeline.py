@@ -53,8 +53,7 @@ def evaluate_dataset_fast(dataset_name, data, pipeline):
         predictions.append(pred)
         gold_labels.append(gold)
         
-    accuracy, class_metrics, ci_lower, ci_upper = compute_metrics(predictions, gold_labels)
-    
+    accuracy, class_metrics, ci_lower, ci_upper, _n_scored = compute_metrics(predictions, gold_labels)
     # Calculate coverage and selective accuracy
     covered_indices = [i for i, p in enumerate(predictions) if p in ["Supported", "Contradicted"]]
     coverage = len(covered_indices) / len(predictions) if predictions else 0.0

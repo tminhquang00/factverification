@@ -19,6 +19,10 @@ def main():
     parser.add_argument("--max_workers", type=int, default=1)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--output_file", default="output/rmit_evaluation_run.json")
+    parser.add_argument("--withhold_unresolved_claims", action="store_true",
+                        help="Ablation: withhold claims whose subject could not be linked from the "
+                             "verdict vote. Off by default — measured at +0.8 pts on CoDEx (inside "
+                             "the noise floor) against -2.67 pts on RMIT.")
     args = parser.parse_args()
 
     random.seed(args.seed)
@@ -29,7 +33,10 @@ def main():
         
     logger.info("Initializing Verification Pipeline...")
     llm_client = get_llm_client(provider=args.provider, model=args.model_name)
-    pipeline = VerificationPipeline(llm_client=llm_client)
+    pipeline = VerificationPipeline(
+        llm_client=llm_client,
+        withhold_unresolved_claims=args.withhold_unresolved_claims,
+    )
     
     logger.info(f"Loading evaluation dataset: {test_set_path}")
     data = []
@@ -75,27 +82,30 @@ def main():
                 gold_labels[i] = gold
                 results_detail[i] = detail
             except Exception as e:
+                # A crash is not a prediction; leave the row unscored rather than defaulting it.
                 logger.error(f"Error evaluating RMIT item {idx}: {e}")
-                predictions[idx] = "Contradicted"
+                predictions[idx] = None
                 gold_labels[idx] = data[idx]["gold_label"]
                 results_detail[idx] = {
                     "id": data[idx]["id"],
                     "text": data[idx]["text"],
                     "raw_claim": data[idx].get("raw_claim", data[idx]["text"]),
                     "gold": data[idx]["gold_label"],
-                    "pred": "Error",
+                    "pred": None,
+                    "raw_pred": "Error",
+                    "error": str(e),
                     "reasoning_type": data[idx]["reasoning_type"],
                     "claims_detail": []
                 }
-        
-    # Calculate metrics
-    accuracy, class_metrics, ci_lower, ci_upper = compute_metrics(predictions, gold_labels)
-    
+
+    # Calculate metrics (unscored crash rows are excluded from the denominator)
+    accuracy, class_metrics, ci_lower, ci_upper, n_scored = compute_metrics(predictions, gold_labels)
     print("\n" + "="*60)
     print("RMIT HANDBOOK KNOWLEDGE GRAPH VERIFICATION REPORT")
     print("="*60)
-    print(f"Total Evaluated: {len(data)}")
-    print(f"E2E System Accuracy: {accuracy:.2%} (95% CI: [{ci_lower:.2%}, {ci_upper:.2%}])\n")
+    print(f"Total Items: {len(data)}")
+    print(f"Scored: {n_scored}   Unscored (pipeline raised): {len(data) - n_scored}")
+    print(f"E2E System Accuracy (over scored rows): {accuracy:.2%} (95% CI: [{ci_lower:.2%}, {ci_upper:.2%}])\n")
     
     print("Metrics by Verdict Class:")
     headers = ["Class", "Precision", "Recall", "F1-Score", "Support"]
@@ -142,6 +152,8 @@ def main():
         "seed": args.seed,
         "max_workers": args.max_workers,
         "total_evaluated": len(data),
+        "n_scored": n_scored,
+        "n_unscored_errors": len(data) - n_scored,
         "accuracy": accuracy,
         "ci_95": [ci_lower, ci_upper],
         "class_metrics": class_metrics,

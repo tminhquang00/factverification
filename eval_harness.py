@@ -48,12 +48,21 @@ def bootstrap_confidence_interval(predictions, gold_labels, num_bootstraps=1000,
     return accuracies[lower_idx], accuracies[upper_idx]
 
 def compute_metrics(predictions, gold_labels):
+    """Computes accuracy and per-class metrics over SCORED rows only.
+
+    A prediction of None marks a row the pipeline never produced a verdict for (it raised).
+    Such rows are excluded from the denominator rather than being assigned a default label:
+    substituting a class label on failure silently converts crashes into accuracy whenever the
+    default coincides with the majority class.
+    """
     classes = ["Supported", "Contradicted", "Not-in-KG"]
     metrics = {c: {"tp": 0, "fp": 0, "fn": 0} for c in classes}
     correct = 0
-    total = len(predictions)
-    
-    for pred, gold in zip(predictions, gold_labels):
+
+    scored = [(p, g) for p, g in zip(predictions, gold_labels) if p is not None]
+    total = len(scored)
+
+    for pred, gold in scored:
         if pred == gold:
             correct += 1
             if pred in metrics:
@@ -80,8 +89,10 @@ def compute_metrics(predictions, gold_labels):
         support = tp + fn
         rows.append([c, f"{precision:.2%}", f"{recall:.2%}", f"{f1:.2%}", support])
         
-    ci_lower, ci_upper = bootstrap_confidence_interval(predictions, gold_labels)
-    return accuracy, rows, ci_lower, ci_upper
+    scored_preds = [p for p, _ in scored]
+    scored_golds = [g for _, g in scored]
+    ci_lower, ci_upper = bootstrap_confidence_interval(scored_preds, scored_golds)
+    return accuracy, rows, ci_lower, ci_upper, total
 
 def run_closed_book_verification(claim: str, llm_client):
     system_prompt = (
@@ -190,6 +201,17 @@ def main():
     parser.add_argument("--smooth_calibration", action="store_true", help="Enable Experiment 4: Continuous confidence score calibration & smoothing")
     parser.add_argument("--output_file", type=str, default=None, help="Path to write JSON evaluation output")
     parser.add_argument("--max_workers", type=int, default=10, help="Number of parallel worker threads for LLM calls")
+    parser.add_argument("--sample", type=str, default="random", choices=["prefix", "random"],
+                        help="Row selection. 'prefix' takes the first --limit rows; several benchmark files "
+                             "are ordered by reasoning type or label, which makes prefix sampling non-representative.")
+    parser.add_argument("--sample_seed", type=int, default=20260725, help="Seed for --sample random")
+    parser.add_argument("--withhold_unresolved_claims", action="store_true",
+                        help="Ablation: withhold claims whose subject could not be linked from the "
+                             "verdict vote. Off by default — measured at +0.8 pts on CoDEx (inside "
+                             "the noise floor) against -2.67 pts on RMIT.")
+    parser.add_argument("--entity_link_threshold", type=float, default=None,
+                        help="Minimum bi-encoder cosine score to accept an entity link. Below it, the subject "
+                             "is treated as unresolved (routing to Not-in-KG) rather than linked to a wrong entity.")
     args = parser.parse_args()
 
     # Reject structured methods on FEVER
@@ -213,17 +235,37 @@ def main():
         adapter = FEVERAdapter()
         
     data = adapter.load_data()
-    data = data[:args.limit]
-    
+    if args.sample == "random" and args.limit < len(data):
+        # Several benchmark files are ordered (FactKG is sorted into contiguous reasoning-type
+        # blocks), so data[:limit] is not a sample. Draw without replacement under a recorded seed.
+        rng = random.Random(args.sample_seed)
+        data = [data[i] for i in sorted(rng.sample(range(len(data)), args.limit))]
+        logger.info(f"Sampled {len(data)} rows at random (seed={args.sample_seed}).")
+    else:
+        data = data[:args.limit]
+        if args.sample == "prefix":
+            logger.warning("Using prefix sampling; the evaluated rows may not be representative.")
+
+    pipeline_kwargs = dict(
+        llm_client=llm_client,
+        oracle_linking=args.oracle_linking,
+        decontextualize=args.decontextualize,
+        smooth_calibration=args.smooth_calibration,
+        withhold_unresolved_claims=args.withhold_unresolved_claims,
+    )
+    if args.entity_link_threshold is not None:
+        pipeline_kwargs["entity_link_threshold"] = args.entity_link_threshold
+
     pipeline = None
     if args.method == "pipeline":
         if args.dataset == "codex":
-            pipeline = VerificationPipeline(kg_path="data/codex_graph.json", llm_client=llm_client, oracle_linking=args.oracle_linking, decontextualize=args.decontextualize, smooth_calibration=args.smooth_calibration)
+            pipeline = VerificationPipeline(kg_path="data/codex_graph.json", **pipeline_kwargs)
         elif args.dataset == "metaqa":
-            pipeline = VerificationPipeline(kg_path="data/metaqa_graph.json", llm_client=llm_client, oracle_linking=args.oracle_linking, decontextualize=args.decontextualize, smooth_calibration=args.smooth_calibration)
+            pipeline = VerificationPipeline(kg_path="data/metaqa_graph.json", **pipeline_kwargs)
         else:
-            pipeline = VerificationPipeline(llm_client=llm_client, oracle_linking=args.oracle_linking, decontextualize=args.decontextualize, smooth_calibration=args.smooth_calibration)
-        
+            pipeline = VerificationPipeline(**pipeline_kwargs)
+
+
     logger.info(f"Running evaluation on {len(data)} items from {args.dataset} using {args.method} (Model: {llm_client.model}, Provider: {llm_client.provider}, Max Workers: {args.max_workers})...")
     
     predictions = [None] * len(data)
@@ -275,29 +317,35 @@ def main():
                 gold_labels[i] = gold
                 results_detail[i] = detail
             except Exception as e:
+                # A crash is NOT a prediction. Leave the slot unscored (None) instead of
+                # substituting a default label, which would credit the run whenever that
+                # default happens to match the gold label.
                 logger.error(f"Error evaluating item {idx}: {e}")
-                predictions[idx] = "Contradicted" if args.dataset == "factkg" else "Not-in-KG"
+                predictions[idx] = None
                 gold_labels[idx] = data[idx]["gold_label"]
                 results_detail[idx] = {
                     "id": data[idx]["id"],
                     "claim": data[idx]["text"],
                     "gold": data[idx]["gold_label"],
-                    "pred": predictions[idx],
+                    "pred": None,
                     "raw_pred": "Error",
+                    "error": str(e),
                     "reasoning_type": data[idx].get("reasoning_type", "N/A")
                 }
 
         
-    # Compute metrics
-    accuracy, class_metrics, ci_lower, ci_upper = compute_metrics(predictions, gold_labels)
-    
+    # Compute metrics (crashes are excluded from the denominator, not defaulted to a label)
+    accuracy, class_metrics, ci_lower, ci_upper, n_scored = compute_metrics(predictions, gold_labels)
+    n_errors = len(data) - n_scored
+
     # Print results
     print("\n" + "="*60)
     print(f"EVALUATION REPORT: {args.dataset.upper()} - {args.method.upper()} (Model: {llm_client.model})")
     print("="*60)
-    print(f"Total Evaluated: {len(data)}")
-    print(f"Accuracy: {accuracy:.2%} (95% CI: [{ci_lower:.2%}, {ci_upper:.2%}])\n")
-    
+    print(f"Total Items: {len(data)}")
+    print(f"Scored: {n_scored}   Unscored (pipeline raised): {n_errors}")
+    print(f"Accuracy (over scored rows): {accuracy:.2%} (95% CI: [{ci_lower:.2%}, {ci_upper:.2%}])\n")
+
     coverage, selective_accuracy = 1.0, accuracy
     if args.method == "pipeline" and args.dataset == "factkg":
         covered_items = [r for r in results_detail if r["raw_pred"] in ["Supported", "Contradicted"]]
@@ -306,7 +354,31 @@ def main():
         selective_accuracy = covered_correct / len(covered_items) if covered_items else 0.0
         print(f"Coverage (In-Scope Claims): {coverage:.2%}")
         print(f"Selective Accuracy (On Covered Subset): {selective_accuracy:.2%}\n")
-        
+
+    # Tri-state view: scored alongside the forced-binary protocol rather than replacing it.
+    # The forced-binary mapping collapses Not-in-KG/Out-of-scope/Abstained into Contradicted,
+    # which makes abstention unmeasurable; this block preserves the distinction.
+    tristate = None
+    if args.method == "pipeline":
+        decisions = ["Supported", "Contradicted", "Not-in-KG"]
+        tri_rows = [r for r in results_detail if r["raw_pred"] != "Error"]
+        tri_cov = [r for r in tri_rows if r["raw_pred"] in decisions]
+        tri_correct = sum(1 for r in tri_cov if r["raw_pred"] == r["gold"])
+        tristate = {
+            "n_scored": len(tri_rows),
+            "coverage": len(tri_cov) / len(tri_rows) if tri_rows else 0.0,
+            "selective_accuracy": tri_correct / len(tri_cov) if tri_cov else 0.0,
+            "abstention_rate": 1 - (len(tri_cov) / len(tri_rows)) if tri_rows else 0.0,
+            "raw_verdict_distribution": {
+                v: sum(1 for r in tri_rows if r["raw_pred"] == v)
+                for v in sorted({r["raw_pred"] for r in tri_rows})
+            },
+        }
+        print(f"Tri-state (raw verdicts, pre-collapse): coverage {tristate['coverage']:.2%}, "
+              f"selective accuracy {tristate['selective_accuracy']:.2%}")
+        print(f"  raw verdicts: {tristate['raw_verdict_distribution']}\n")
+
+
     headers = ["Class", "Precision", "Recall", "F1-Score", "Support"]
     print_markdown_table(headers, class_metrics)
     
@@ -349,10 +421,16 @@ def main():
             "decontextualize": args.decontextualize,
             "smooth_calibration": args.smooth_calibration,
             "total_evaluated": len(data),
+            "n_scored": n_scored,
+            "n_unscored_errors": n_errors,
+            "sampling": args.sample,
+            "sample_seed": args.sample_seed,
+            "entity_link_threshold": args.entity_link_threshold,
             "accuracy": accuracy,
             "ci_95": [ci_lower, ci_upper],
             "coverage": coverage,
             "selective_accuracy": selective_accuracy,
+            "tristate": tristate,
             "results_detail": results_detail
         }
         with open(args.output_file, "w", encoding="utf-8") as f:

@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "review_date": "2026-07-25",
+  "review_date": "2026-07-26",
   "artifact_policy": {
     "authoritative_results": "Only artifacts marked validated may support research claims.",
     "row_level_requirement": "Every aggregate must be reproducible from saved row-level predictions.",
@@ -25,49 +25,66 @@
       "id": "e01_graph_destruction",
       "status": "invalidated_requires_rewrite",
       "entry_point": "scripts/run_phase0_diagnostics.py",
-      "outputs": ["output/diagnostics/phase0_diagnostics_results.json"],
+      "outputs": [
+        "output/diagnostics/phase0_diagnostics_results.json"
+      ],
       "reason": "The artifact lacks paired baseline predictions, does not include the reported RMIT control, and predates graph-store isolation fixes."
     },
     {
       "id": "e2_world_assumption_routing",
       "status": "implementation_repaired_requires_rerun",
       "entry_point": "scripts/run_revised_experiments.py",
-      "outputs": ["output/experiments/revised_experiments_results.json"],
+      "outputs": [
+        "output/experiments/revised_experiments_results.json"
+      ],
       "reason": "Routing modes now execute distinct policies, but the saved artifact predates the fix and conditions still require cached decomposition and linking for a valid paired comparison."
     },
     {
       "id": "e3_completeness_denominator",
       "status": "invalidated_simulated",
       "entry_point": "scripts/run_revised_experiments.py",
-      "outputs": ["output/experiments/revised_experiments_results.json"],
+      "outputs": [
+        "output/experiments/revised_experiments_results.json"
+      ],
       "reason": "The experiment returned fixed constants rather than measurements."
     },
     {
       "id": "e4_selective_threshold_sweep",
       "status": "invalidated_simulated",
       "entry_point": "scripts/run_revised_experiments.py",
-      "outputs": ["output/experiments/revised_experiments_results.json", "docs/benchmarks/calibration_report.md"],
+      "outputs": [
+        "output/experiments/revised_experiments_results.json",
+        "docs/benchmarks/calibration_report.md"
+      ],
       "reason": "Coverage, selective accuracy, AURC, and tie fractions were generated from formulas or unsupported report tables."
     },
     {
       "id": "e5_meta_confidence",
       "status": "invalidated_label_leakage",
       "entry_point": "scripts/train_meta_confidence.py",
-      "outputs": ["output/meta_confidence_ablation.json", "output/experiments/revised_experiments_results.json"],
+      "outputs": [
+        "output/meta_confidence_ablation.json",
+        "output/experiments/revised_experiments_results.json"
+      ],
       "reason": "Synthetic confidence features were sampled conditionally on gold correctness and fallback records were artificially separable."
     },
     {
       "id": "institutional_claim_benchmark",
       "status": "component_only_not_advising_completeness",
       "entry_point": "eval_rmit.py",
-      "outputs": ["output/rmit_evaluation_run.json"],
+      "outputs": [
+        "output/rmit_evaluation_run.json"
+      ],
       "reason": "The benchmark contains synthetic individual claims derived from the verification graph, not set-valued advising answers."
     },
     {
       "id": "public_tristate_benchmarks",
       "status": "invalidated_heldout_edges_present",
       "entry_point": "scripts/generate_tristate_benchmarks.py",
-      "outputs": ["data/codex_s_tri.jsonl", "data/metaqa_tri.jsonl"],
+      "outputs": [
+        "data/codex_s_tri.jsonl",
+        "data/metaqa_tri.jsonl"
+      ],
       "reason": "Records marked held out do not remove the true edge from the graph used by verification."
     },
     {
@@ -124,12 +141,51 @@
     },
     {
       "id": "harness_substitutes_default_label_on_exception",
-      "status": "confirmed_defect_requires_fix",
-      "entry_point": "eval_harness.py:277-288",
+      "status": "fixed_and_verified",
+      "entry_point": "eval_harness.py, eval_rmit.py",
       "outputs": [
+        "tests/test_eval_harness.py",
         "docs/benchmarks/rerun_20260725_paper.md"
       ],
-      "reason": "On any exception the harness substitutes the dataset default label (Contradicted on FactKG, Not-in-KG otherwise) and scores it as a prediction. Because Contradicted is also FactKG's majority class, 113 crashes were scored as 111 correct predictions, converting an implementation failure into apparent accuracy. This instrumentation flaw is independent of the stage-3 defect it concealed and is still present. Crashes must be recorded as an explicit non-scored outcome."
+      "reason": "On any exception both harnesses substituted the dataset default label (Contradicted on FactKG, Not-in-KG otherwise) and scored it as a prediction. Because Contradicted is also FactKG's majority class, 113 crashes were scored as 111 correct predictions. Repaired: a crash now leaves the row unscored (pred null, raw_pred 'Error', plus the exception text) and compute_metrics excludes unscored rows from the denominator, returning n_scored so the caller can see the gap. Output JSON carries n_scored and n_unscored_errors. Covered by CrashScoringTests."
+    },
+    {
+      "id": "stage3_object_namespace_defect",
+      "status": "fixed_and_verified",
+      "entry_point": "verification_pipeline.py:stage_3_map_claim_to_triple",
+      "outputs": [
+        "scripts/diagnose_object_namespace.py",
+        "output/diagnostics/object_namespace_diagnosis.json",
+        "tests/test_verification_pipeline.py"
+      ],
+      "reason": "Stage 3 substituted the resolved entity KEY for a claim's object on every open-domain relation. Entity records are keyed by id (Q-id on CoDEx) while their field values are surface labels: data/codex_graph.json holds 17203 object values, all labels and zero Q-ids. Stage 4 therefore compared an id against a label and reported a value mismatch for every true claim, driving CoDEx Supported recall to 0.039 while Contradicted became the default answer at precision 0.374. Repaired by projecting a resolved object back to its stored label before returning. Measured on the asserted-triple oracle parse (n=496, no LLM): accuracy 0.4435 to 0.6915 with Supported recall 0.071 to 1.000. Covered by ObjectNamespaceTests."
+    },
+    {
+      "id": "entity_link_rejection_threshold",
+      "status": "candidate",
+      "entry_point": "scripts/sweep_entity_threshold.py",
+      "outputs": [
+        "output/diagnostics/entity_threshold_sweep.json"
+      ],
+      "reason": "link_entity accepted a bi-encoder cosine match at 0.35, so subjects absent from the graph were linked to their nearest neighbour instead of being reported unresolved; all 97 genuinely-absent CoDEx subjects in the first 500 rows were linked to a wrong entity. The threshold is now a constructor parameter (default 0.35, preserving RMIT behaviour) and the token-overlap fallback is gated so it cannot undo a rejection. Selected on a held-out split (dev = CoDEx rows 500-1000, test = rows 0-500): the sweep is monotone, dev selects 0.95, and dev 0.8435 generalizes to test 0.8206 against 0.4798 at the library default 0.35 (measured on the code as shipped, with all five repairs in place). Remains candidate because it is calibrated on one graph and one benchmark."
+    },
+    {
+      "id": "unresolved_claims_vote_in_aggregation",
+      "status": "implemented_measured_disabled_by_default",
+      "entry_point": "verification_pipeline.py:verify_statement",
+      "outputs": [
+        "tests/test_verification_pipeline.py"
+      ],
+      "reason": "verify_statement combined claim verdicts by priority with no distinction between 'the graph lacks this fact' and 'this claim could not be linked'. LLM decomposition routinely emits one good claim plus a fragment ('The member', 'languages of X'); the fragment resolved to entity_unresolved, voted Not-in-KG, and overrode the correctly-verified claim. Claims whose subject could not be linked are now recorded with voted=false and withheld from the vote unless every claim is unresolved, in which case the subject genuinely is absent and Not-in-KG stands. Found by smoke-testing the end-to-end path after the threshold change; the oracle-parse diagnostic could not surface it because it supplies exactly one gold claim per row. MEASURED AND DISABLED BY DEFAULT. Paired ablations on identical rows with concurrent arms: on RMIT n=300 gemma-4-e4b the rule is the sole cause of a reproducible regression on the existence slice, 29/50 off versus 21/50 on, costing 2.67 points overall and matching the pre-repair 29/50 exactly when disabled. On CoDEx n=250 gemma-4-e4b it gains only 0.80 points (77.60 to 78.40) with 18 of 250 predictions differing, a 7.2 percent disagreement identical to that cell's measured run-to-run flip rate, so the gain is not distinguishable from noise. Shipping a change whose only measurable effect is a regression is not defensible, so withhold_unresolved_claims defaults to False and the behaviour is retained behind a flag. The rule remains semantically correct; the RMIT cost traces to a separate decomposition bug in the coordinator-existence generator, which extracts 'RMIT catalogue' as the subject. Re-measure D4 after that decomposition is fixed."
+    },
+    {
+      "id": "stage3_relation_normalization",
+      "status": "fixed_and_verified",
+      "entry_point": "verification_pipeline.py:stage_3_map_claim_to_triple",
+      "outputs": [
+        "tests/test_verification_pipeline.py"
+      ],
+      "reason": "The open-domain relation-mapping fallback fired only when the relation was literally 'unclassified' or empty. LLM decomposition instead emits concrete but non-canonical surface phrasings ('is member of' against a graph field named 'member of political party'), so stage 4 fell through to 'Unrecognized relation class' and returned Not-in-KG for facts the graph holds. The fallback now also fires when the relation is neither an ontology relation nor a field on the resolved subject's record. ONTOLOGY_RELATIONS exempts the RMIT dispatch path, which is unaffected."
     },
     {
       "id": "rerun_20260725_fixed_multimodel",
@@ -141,6 +197,38 @@
         "docs/benchmarks/rerun_20260725_paper.md"
       ],
       "reason": "Post-fix sweep over RMIT n=300, FactKG n=500, CoDEx n=500 for azure-4.1-mini and google/gemma-4-e4b, plus the deterministic graph-destruction control. All exit codes 0, zero crashes, row-level predictions saved, and every aggregate recomputed from those rows by scripts/summarize_rerun_results.py. Not promoted to validated: RMIT gold labels are circular because eval_rmit.py verifies a template string interpolated from the fields the verifier queries; CoDEx retains the invalidated_heldout_edges_present finding; FactKG collapses Not-in-KG into Contradicted so abstention cannot be scored; intervals are IID row bootstraps rather than clustered because the rows carry no subject-entity field; sampling is by prefix rather than random; and a single run per cell is inadequate given a measured 5.75 percent mean prediction flip rate between identical reruns."
+    },
+    {
+      "id": "rerun_20260726_final_public_benchmarks",
+      "status": "candidate",
+      "entry_point": "scripts/run_benchmark_sweep.py",
+      "outputs": [
+        "output/experiments/rerun_20260726_final/",
+        "output/experiments/rerun_20260726_final/aggregate_summary.json",
+        "docs/benchmarks/rerun_20260726_paper.md"
+      ],
+      "reason": "Ten cells (2 engines x RMIT n=300, plus FactKG and CoDEx n=500 under both prefix and random sampling) run against shipped defaults after repairing four defects and measuring a fifth (D4) that ships disabled. All exit codes 0, zero unscored rows, row-level predictions saved, every aggregate recomputed from those rows, complete 10-cell process manifest. With sampling held constant CoDEx moves 41.80 to 81.80 percent (azure-4.1-mini) and 37.20 to 75.80 percent (gemma-4-e4b), and Supported recall moves 0.039 to 0.981. RMIT azure-4.1-mini is unchanged at 97.33 percent. Not promoted to validated: two runs per cell against a measured 5.07 percent mean prediction flip rate, so nothing below about 2.5 points is resolvable and the FactKG before/after deltas of +3.4 and +2.8 are directional only; RMIT gold labels remain circular; intervals are IID row bootstraps rather than clustered because rows still carry no subject-entity field; confidence remains uncalibrated; and the entity-link threshold is calibrated on CoDEx only."
+    },
+    {
+      "id": "codex_llm_pipeline_graph_destruction_control",
+      "status": "candidate",
+      "entry_point": "scripts/run_kg_destruction_control.py",
+      "outputs": [
+        "output/diagnostics/codex_destruction_control_fixed.json"
+      ],
+      "reason": "Graph-destruction control run against the LLM pipeline's verification path (stages 3-4, no LLM, deterministic) on CoDEx, which the 2026-07-25 study listed as never run. Within-relation shuffling preserves entity set, relation keys and per-relation value multiset while destroying subject-value association. Before the stage-3 object-namespace repair the control changed 1.8 to 2.8 percent of predictions; after it changes 27.2 to 30.9 percent (mean 28.9) with accuracy falling from 82.06 to 56.1-60.5 percent, and removing all relations collapses the pipeline to 35.89 percent, the majority floor. This answers RQ1 affirmatively for the LLM pipeline on CoDEx. The script exits non-zero below --min_change_rate so it can gate future changes. Candidate because it covers one graph and one benchmark."
+    },
+    {
+      "id": "factkg_prefix_sampling_artifact",
+      "status": "candidate",
+      "entry_point": "scripts/run_benchmark_sweep.py",
+      "outputs": [
+        "output/experiments/rerun_20260726_fixed/factkg__azure_4_1_mini__prefix.json",
+        "output/experiments/rerun_20260726_fixed/factkg__azure_4_1_mini__random.json",
+        "output/experiments/rerun_20260726_fixed/factkg__google_gemma_4_e4b__prefix.json",
+        "output/experiments/rerun_20260726_fixed/factkg__google_gemma_4_e4b__random.json"
+      ],
+      "reason": "data/factkg_test.jsonl is sorted into 45 contiguous reasoning-type blocks, so data[:500] selects 2 of 13 reasoning types (existence 375, num1|substitution 125) at a majority floor of 0.6460 against the full 9041-row set's 0.5135. Running both sampling arms on identical code gives 81.40 versus 58.60 percent (azure-4.1-mini) and 84.60 versus 57.80 percent (gemma-4-e4b), a gap of 23 to 27 points attributable to the sample alone. The per-type breakdown shows reasoning type determines the gold label almost deterministically: every *|substitution type is about 100 percent Contradicted and every plain numN type about 98 percent Supported, so the pipeline's Contradicted prior scores 0.94-1.00 on one group and 0.03-0.33 on the other. eval_harness now defaults to --sample random and records the seed. This is a measured instance of the C3 binary-benchmark trap."
     },
     {
       "id": "llm_pipeline_run_to_run_variance",
@@ -155,7 +243,9 @@
       "id": "legacy_master_sweep",
       "status": "disabled",
       "entry_point": "scripts/run_full_experiment_sweep.py",
-      "outputs": ["output/experiments/full_experiment_sweep_report.json"],
+      "outputs": [
+        "output/experiments/full_experiment_sweep_report.json"
+      ],
       "reason": "The runner combined invalidated experiments and inserted hand-written p-values."
     }
   ]

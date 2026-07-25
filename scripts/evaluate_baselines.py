@@ -43,8 +43,7 @@ def evaluate_baseline_suite():
         counts = Counter(golds)
         maj_label = counts.most_common(1)[0][0]
         maj_preds = [maj_label] * n
-        maj_acc, _, _, _ = compute_metrics(maj_preds, golds)
-
+        maj_acc, _, _, _, _n_scored = compute_metrics(maj_preds, golds)
         # 2. Stratified Random
         classes = list(counts.keys())
         probs = [counts[c] / n for c in classes]

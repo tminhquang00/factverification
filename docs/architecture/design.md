@@ -1,8 +1,41 @@
-# Design Draft: A Schema-Guided, Tri-State, Claim-Level Verification Framework for Locally Deployed LLMs in University Administration
+# Design Roadmap: A Schema-Guided, Tri-State, Claim-Level Verification Framework for Locally Deployed LLMs in University Administration
 
-**Status:** Working draft v2 for thesis (methodology + ontology + evaluation chapters)
+> [!IMPORTANT]
+> **This is the design roadmap, not the architecture.** It specifies the intended system, including
+> substantial parts that have not been built. It is retained for thesis framing, the ontology
+> specification (Part II), and the dataset inventory (Part VI) — all of which remain useful targets.
+>
+> **For what the system actually does, read [`methodology.md`](methodology.md).**
+
+**Status:** Working draft v2.1 — design specification for thesis (methodology + ontology + evaluation chapters)
 **Companion documents:** Literature review (Gaps 1–7 referenced throughout) · Comparative analysis (Families A–D)
-**Changelog v2:** added Part V (portable benchmark harness for external + custom datasets) and Part VI (dataset inventory); Part III revised to route all measurements through the harness.
+**Changelog v2:** added Part V (portable benchmark harness) and Part VI (dataset inventory); Part III revised to route all measurements through the harness.
+**Changelog v2.1 (2026-07-26):** reframed as roadmap rather than architecture; added the build-status map below; Part VII corrected (three of its four staged experiments are registry-invalidated); added §17 recording what actually moved public-benchmark accuracy.
+
+---
+
+## Build status of this specification
+
+| Part / component | Status |
+| --- | --- |
+| Stage 2 — schema-guided decomposition, double-run agreement (D2) | **Built**, conditional on graph size ≥ 50 entities |
+| Stage 3 — hybrid mapping, entity linker with τ_link | **Built.** τ_link is `entity_link_threshold`, fitted on a held-out split |
+| Stage 4 — closed/open dispatch on relation semantics | **Built** |
+| Stage 4 — **constraint-typed / SHACL** relation class | **Not built** |
+| Stage 4 — completeness *declarations* driving dispatch (Layer 1, P1) | **Not built.** Dispatch uses live relation *occupancy*, a local tidiness statistic |
+| Stage 1 — draft generation, A1/A2 arms | **Not built.** No generation arm exists |
+| Stage 5 — flag report | **Partial.** Verdict, reason and a rendered evidence triple; **no provenance link** (P3) |
+| Stage 6 — human review UI, curation backlog | **Not built** |
+| Layer 2 — temporal scoping by catalogue year (P2) | **Not built** |
+| Layer 4 — verifiability boundary, `HumanOnly` marking (P4) | **Not built** |
+| Part V — harness, adapters, row-level metrics | **Partial.** Adapters are plain loaders; no YAML config, no config-hash run id |
+| Part V — risk–coverage curve as a guarantee | **Not built.** Confidence is uncalibrated |
+| §9 — Neo4j / RDF store | **Not built.** `kg_store.py` over a JSON dictionary |
+| E1 (FactKG), E5 (admin-custom) | **Run.** E5's benchmark is circular |
+| E2 (FEVER), E3 (RAGTruth), E4 (HaluEval/FELM), E6 (second institution) | **Not run** |
+
+Measured results: [`../benchmarks/rerun_20260726_paper.md`](../benchmarks/rerun_20260726_paper.md) ·
+Artifact validity: [`../experiment_registry.md`](../experiment_registry.md)
 
 ---
 
@@ -310,6 +343,12 @@ E1 and E5 are the two runs the thesis cannot omit; E2–E4 are comparability anc
 
 ## Part VII — Multi-Model Verification Engine & Staged Accuracy Improvement Architecture
 
+> [!CAUTION]
+> **§16's four staged experiments are superseded.** Three are marked invalid in
+> [`../experiment_registry.md`](../experiment_registry.md) and one was never a live code path.
+> They are retained below for traceability only and **must not be cited**. The work that actually
+> moved public-benchmark accuracy is [§17](#17-what-actually-improved-accuracy-2026-07-26).
+
 ### 15. Multi-Model LLM Client Architecture (`llm_client.py`)
 
 The framework supports dynamic model provider dispatch across cloud deployments and local edge instances:
@@ -346,8 +385,36 @@ graph LR
     Exp4 --> D
 ```
 
-- **Experiment 1 (Oracle Upper Bound)**: Measures maximum performance headroom when Stage 3 linking errors are eliminated.
-- **Experiment 2 (Neural Entity/Relation Linking)**: Uses dense bi-encoder embeddings (`all-MiniLM-L6-v2`) and alias tables to close the oracle gap.
-- **Experiment 3 (Multi-Hop Decontextualization)**: Uses CoVe factored sub-claim decomposition to resolve intermediate bridge entities and boost MetaQA coverage.
-- **Experiment 4 (Continuous Calibration Smoothing)**: Uses continuous NLI and entity similarity score margins to eliminate discrete step mass-ties at 1.0 confidence and generate monotone risk-coverage curves.
+- **Experiment 1 (Oracle Upper Bound)**: Measures maximum performance headroom when Stage 3 linking errors are eliminated. → *`oracle_linking` is a live flag; the historical result artifact predates the graph-store isolation fixes and is not citable.*
+- **Experiment 2 (Neural Entity/Relation Linking)**: Uses dense bi-encoder embeddings (`all-MiniLM-L6-v2`) and alias tables to close the oracle gap. → *The bi-encoder is live, but there are **no alias tables**; matching is over the entity label list only.*
+- **Experiment 3 (Multi-Hop Decontextualization)**: Uses CoVe factored sub-claim decomposition to resolve intermediate bridge entities and boost MetaQA coverage. → *MetaQA was dropped from the current study; not re-run.*
+- **Experiment 4 (Continuous Calibration Smoothing)**: Uses continuous NLI and entity similarity score margins to eliminate discrete step mass-ties at 1.0 confidence and generate monotone risk-coverage curves. → **Invalid on two counts.** Registry status `invalidated_simulated` (coverage, selective accuracy, AURC and tie fractions were generated from formulas, not measurements). Separately, **no NLI model exists anywhere in the codebase** — the implemented `smooth_calibration` term is *decomposition agreement*, not an NLI margin, and it is off by default.
+
+### 17. What actually improved accuracy (2026-07-26)
+
+The staged experiments above did not produce the public-benchmark gains. Five defects did — four
+repaired, one measured and left disabled. Full analysis:
+[`../benchmarks/rerun_20260726_paper.md`](../benchmarks/rerun_20260726_paper.md).
+
+| # | Defect | Effect when repaired |
+| --- | --- | --- |
+| D1 | Stage 3 returned the resolved entity **key** as a claim's object, while graphs store field values as **surface labels** — so Stage 4 compared an id against a label and reported a value mismatch for every true open-domain claim | The dominant fix. CoDEx `Supported` recall **0.039 → 0.981** |
+| D2 | `link_entity` had no rejection threshold (fixed 0.35), so subjects absent from the graph were snapped to a nearest neighbour instead of reported unresolved | `entity_link_threshold`, selected on a held-out split (0.95 for CoDEx). `Not-in-KG` precision → 1.000 |
+| D3 | The relation-normalization fallback fired only on a literal `unclassified` relation, so LLM phrasings (`is member of` vs the field `member of political party`) fell through to `Not-in-KG` | Required for the end-to-end path to resolve at all |
+| D4 | Unlinkable decomposition fragments voted in verdict aggregation | Measured at +0.8 pts on CoDEx (inside the noise floor); **ships disabled** |
+| D5 | Both harnesses substituted the dataset default label on any exception and scored it — on FactKG that default was also the majority class | Crashes are now unscored; `n_scored` reported separately |
+
+Headline effect, sampling held constant on the identical 500 CoDEx rows:
+**41.80% → 81.80%** (`azure-4.1-mini`) and **37.20% → 75.80%** (`gemma-4-e4b`).
+
+**The grounding gate is the governing acceptance test.** Destroying the graph's factual content
+while preserving its structure previously changed only 1.8–2.8% of predictions — the pipeline's
+verdicts were largely recoverable without the graph. It now changes **28.9%**. Any future change to
+Stages 3–4 must keep `scripts/run_kg_destruction_control.py` passing; accuracy that survives
+destruction of the graph is not verification.
+
+**A methodological caution earned the hard way.** D1 and D2 were validated on an *oracle parse* that
+supplies gold subject and relation strings. That harness cannot exercise relation normalization or
+multi-claim aggregation, and its projected gain did not materialize end-to-end until D3 and D4 were
+found. Component diagnostics bound what a fix can do; they do not predict what it will do.
 

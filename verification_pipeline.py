@@ -10,6 +10,19 @@ from llm_client import get_llm_client
 
 logger = logging.getLogger("verification_pipeline")
 
+# Relations stage_4_verify_triple dispatches on explicitly. A claim carrying one of these is
+# already canonical and must bypass the open-domain relation-normalization fallback, so the
+# institutional (RMIT) ontology path is unaffected by open-domain relation matching.
+ONTOLOGY_RELATIONS = {
+    "requiresPrerequisite",
+    "hasCreditValue",
+    "partOfSchool",
+    "taughtBy",
+    "offeredInTerm",
+    "coordinator",
+    "email",
+}
+
 class BiEncoderResolver:
     """Bi-encoder embedding resolver for open-domain entity resolution and relation mapping."""
     def __init__(self):
@@ -67,10 +80,19 @@ class VerificationPipeline:
     - Stage 4: Semantic dispatch logic (CWA vs OWA routing) evaluating against KGStore.
     - Stage 5 / Engine: Optional legacy heuristic abstention for experimental compatibility.
     """
-    def __init__(self, kg_path="data/rmit_graph.json", llm_client=None, oracle_linking=False, decontextualize=False, smooth_calibration=False, routing_mode="dynamic", cwa_threshold=0.85, abstention_threshold=None):
-        """Initializes the verification pipeline, loads graph store, and builds lookup index."""
+    def __init__(self, kg_path="data/rmit_graph.json", llm_client=None, oracle_linking=False, decontextualize=False, smooth_calibration=False, routing_mode="dynamic", cwa_threshold=0.85, abstention_threshold=None, entity_link_threshold=0.35, withhold_unresolved_claims=False):
+        """Initializes the verification pipeline, loads graph store, and builds lookup index.
+
+        `entity_link_threshold` is the minimum bi-encoder cosine score at which a surface form is
+        accepted as an entity link. Below it the surface form is reported unresolved, so a subject
+        the graph does not contain routes to Not-in-KG instead of being linked to the nearest wrong
+        entity. The 0.35 default preserves historical behaviour; open-domain graphs need it far
+        higher (see docs/benchmarks/comprehensive_report_20260725.md).
+        """
         if routing_mode not in {"dynamic", "fixed_cwa", "fixed_owa"}:
             raise ValueError(f"Unsupported routing mode: {routing_mode}")
+        if not 0.0 <= entity_link_threshold <= 1.0:
+            raise ValueError("entity_link_threshold must be between 0 and 1.")
         self.store = get_kg_store(kg_path)
         self.llm_client = llm_client or get_llm_client()
         self.bi_encoder = get_bi_encoder()
@@ -79,6 +101,14 @@ class VerificationPipeline:
         self.smooth_calibration = smooth_calibration
         self.routing_mode = routing_mode
         self.cwa_threshold = cwa_threshold
+        self.entity_link_threshold = entity_link_threshold
+        # When True, a claim whose subject could not be linked is withheld from the verdict vote
+        # on the grounds that it carries no evidence. Semantically that is the right rule, but it
+        # is OFF by default: a paired ablation measured its benefit on CoDEx at +0.8 points (inside
+        # the 7.2% run-to-run flip rate for that cell) against a reproducible -2.67 point cost on
+        # RMIT, where an unlinkable claim's vote was masking a decomposition bug in the
+        # coordinator-existence generator. Revisit once that decomposition is fixed.
+        self.withhold_unresolved_claims = withhold_unresolved_claims
         self.entity_index = {}
         self.entity_keys_list = []
         self.entity_codes_list = []
@@ -165,9 +195,15 @@ class VerificationPipeline:
                 sims = np.array([float(sims)])
             best_idx = int(np.argmax(sims))
             best_score = float(sims[best_idx])
-            
-            if best_score >= 0.35:
+
+            if best_score >= self.entity_link_threshold:
                 return resolved(self.entity_codes_list[best_idx], max(0.2, min(1.0, best_score)))
+
+            # The nearest neighbour was rejected. The token-overlap fallback below is strictly
+            # more permissive than cosine similarity, so running it here would silently undo the
+            # rejection and re-link a subject the graph does not contain.
+            if self.entity_link_threshold > 0.35:
+                return resolved(None, 0.0)
 
         # Token overlap fallback
         best_match = None
@@ -288,9 +324,20 @@ class VerificationPipeline:
         # Link Subject Entity
         subject_code, entity_score = self.link_entity(subject_raw, include_score=True)
         
-        # Fallback mapping for unresolved / unclassified relations (e.g. in public datasets)
-        if (relation == "unclassified" or claim_type == "unclassified" or not relation) and subject_code:
-            course_data = self.store.courses.get(subject_code, {})
+        # Fallback mapping for unresolved / unclassified relations (e.g. in public datasets).
+        #
+        # This also fires when the LLM produced a concrete but non-canonical relation string.
+        # Open-domain decomposition emits surface phrasings ("is member of") that do not match the
+        # graph's field name ("member of political party"); without normalization stage 4 falls
+        # through to "Unrecognized relation class" and returns Not-in-KG for a fact the graph holds.
+        # Ontology relations handled explicitly by stage 4 are exempt so RMIT is unaffected.
+        course_data = self.store.courses.get(subject_code, {}) if subject_code else {}
+        relation_is_unknown = (
+            relation not in ONTOLOGY_RELATIONS
+            and relation not in course_data
+        )
+        if (relation == "unclassified" or claim_type == "unclassified" or not relation
+                or relation_is_unknown) and subject_code:
             actual_relations = [k for k in course_data.keys() if k not in ["course_id", "title", "credits", "school", "coordinator", "coordinator_email", "prerequisites", "description"]]
             
             synonyms = {
@@ -350,12 +397,21 @@ class VerificationPipeline:
                 return mapped(subject_raw, relation, str(object_raw).strip(), entity_score)
             return mapped(None, "entity_unresolved", subject_raw, entity_score)
 
-        # Link Object Entity for open-domain relations
+        # Link Object Entity for open-domain relations.
+        #
+        # The object must be returned in the SAME namespace the graph stores its values in.
+        # Entity records are keyed by id (course code on RMIT, Q-id on CoDEx) while their field
+        # values are surface labels, so substituting the resolved entity *key* here makes stage 4
+        # compare an id against a label and report a value mismatch for every true claim.
+        # Resolve for the confidence signal, then project back to the label the graph holds.
         if relation not in ["requiresPrerequisite", "hasCreditValue", "partOfSchool", "taughtBy", "offeredInTerm"]:
             object_code, object_score = self.link_entity(object_raw, include_score=True)
-            entity_score = min(entity_score, object_score)
             if object_code:
-                return mapped(subject_code, relation, object_code, entity_score)
+                entity_score = min(entity_score, object_score)
+                object_record = self.store.courses.get(object_code, {})
+                object_label = object_record.get("title", object_code)
+                return mapped(subject_code, relation, str(object_label), entity_score)
+            return mapped(subject_code, relation, str(object_raw).strip(), entity_score)
 
         if relation == "requiresPrerequisite":
             # Check for negation words in object_raw before calling link_entity
@@ -722,6 +778,13 @@ class VerificationPipeline:
 
         verified_claims = []
         overall_verdict = "Supported"
+        # A claim whose subject could not be linked carries no evidence about the statement:
+        # it is a decomposition artifact, not a finding that the graph lacks the fact. LLM
+        # decomposition routinely emits one good claim plus a fragment ("The member",
+        # "languages of X"), and letting the fragment vote Not-in-KG overrides the good claim.
+        # Such claims are recorded but withheld from the vote unless *every* claim is unresolved,
+        # in which case the subject genuinely is not in the graph.
+        voting_verdicts = []
 
         for claim in claims:
             mapped_triple, entity_score = self.stage_3_map_claim_to_triple(claim, include_metadata=True)
@@ -777,15 +840,28 @@ class VerificationPipeline:
                 "evidence": result["evidence"]
             }
             
-            # Combine verdicts: Contradicted has highest priority, then Not-in-KG, then Out-of-scope, then Supported
-            if final_verdict == "Contradicted":
-                overall_verdict = "Contradicted"
-            elif final_verdict == "Not-in-KG" and overall_verdict != "Contradicted":
-                overall_verdict = "Not-in-KG"
-            elif final_verdict == "Out-of-scope" and overall_verdict not in ["Contradicted", "Not-in-KG"]:
-                overall_verdict = "Out-of-scope"
+            claim_report["voted"] = not (
+                getattr(self, "withhold_unresolved_claims", True)
+                and relation == "entity_unresolved"
+            )
+            if claim_report["voted"]:
+                voting_verdicts.append(final_verdict)
 
             verified_claims.append(claim_report)
+
+        # If nothing resolved, the subject really is absent from the graph.
+        if not voting_verdicts:
+            voting_verdicts = [c["verdict"] for c in verified_claims] or ["Out-of-scope"]
+
+        # Combine verdicts: Contradicted has highest priority, then Not-in-KG, then Out-of-scope,
+        # then Supported.
+        for verdict in voting_verdicts:
+            if verdict == "Contradicted":
+                overall_verdict = "Contradicted"
+            elif verdict == "Not-in-KG" and overall_verdict != "Contradicted":
+                overall_verdict = "Not-in-KG"
+            elif verdict == "Out-of-scope" and overall_verdict not in ["Contradicted", "Not-in-KG"]:
+                overall_verdict = "Out-of-scope"
 
         return {
             "text": text,

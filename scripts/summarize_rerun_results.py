@@ -60,11 +60,20 @@ def per_class(rows):
 
 def summarize(path: Path):
     d = json.loads(path.read_text(encoding="utf-8"))
-    rows = d["results_detail"]
+    all_rows = d["results_detail"]
+    n_total = len(all_rows)
+
+    # A crash leaves the row unscored (pred is null). Excluding it from the denominator is the
+    # whole point of the harness repair: defaulting it to a class label credits the run whenever
+    # that default matches the gold. Every metric below is over scored rows.
+    rows = [r for r in all_rows if r.get("pred") is not None]
     n = len(rows)
+    if n == 0:
+        raise ValueError(f"{path.name}: no scored rows")
+
     gold = Counter(r["gold"] for r in rows)
     pred = Counter(r["pred"] for r in rows)
-    raw = Counter(r.get("raw_pred", r["pred"]) for r in rows)
+    raw = Counter(r.get("raw_pred", r["pred"]) for r in all_rows)
 
     acc = sum(1 for r in rows if r["pred"] == r["gold"]) / n
     lo, hi = bootstrap_ci(rows)
@@ -79,8 +88,10 @@ def summarize(path: Path):
     # default label. These are scored as predictions, which biases accuracy toward
     # whichever class the harness defaults to.
     n_error = raw.get("Error", 0)
-    err_rows = [r for r in rows if r.get("raw_pred") == "Error"]
-    err_credited = sum(1 for r in err_rows if r["pred"] == r["gold"])
+    err_rows = [r for r in all_rows if r.get("raw_pred") == "Error"]
+    # Post-repair this must be 0: an unscored row carries pred None and can never match a gold
+    # label. A non-zero value means a harness is still substituting a default label on failure.
+    err_credited = sum(1 for r in err_rows if r.get("pred") == r["gold"])
 
     # Coverage = share of rows where the pipeline returned an actual decision.
     covered = [r for r in rows if r.get("raw_pred", r["pred"]) in ("Supported", "Contradicted", "Not-in-KG")]
@@ -92,7 +103,7 @@ def summarize(path: Path):
     sel_acc = (sum(1 for r in covered if r["pred"] == r["gold"]) / len(covered)) if covered else 0.0
 
     # Accuracy over rows the pipeline actually completed (errors excluded entirely).
-    ok_rows = [r for r in rows if r.get("raw_pred") != "Error"]
+    ok_rows = rows  # `rows` is already the scored subset; retained for output-schema stability
     acc_excl_err = (sum(1 for r in ok_rows if r["pred"] == r["gold"]) / len(ok_rows)) if ok_rows else 0.0
 
     by_reasoning = {}
@@ -111,6 +122,10 @@ def summarize(path: Path):
         "dataset": d["dataset"],
         "model": d["model_name"],
         "provider": d["provider"],
+        "sampling": d.get("sampling", "full"),
+        "sample_seed": d.get("sample_seed"),
+        "entity_link_threshold": d.get("entity_link_threshold"),
+        "n_total": n_total,
         "n": n,
         "accuracy_recomputed": acc,
         "accuracy_stored": d.get("accuracy"),

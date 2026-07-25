@@ -91,7 +91,7 @@ def run_dataset_eval(dataset_name, method, limit, threshold=0.5, disable_complet
             if (idx + 1) % 20 == 0 or (idx + 1) == len(data):
                 logger.info(f"  Progress: {idx+1}/{len(data)} completed")
                 
-    accuracy, class_metrics, ci_lower, ci_upper = compute_metrics(predictions, gold_labels)
+    accuracy, class_metrics, ci_lower, ci_upper, _n_scored = compute_metrics(predictions, gold_labels)
     if method == "pipeline" and dataset_name == "factkg":
         covered_indices = [i for i, r in enumerate(raw_predictions) if r in ["Supported", "Contradicted"]]
         coverage = len(covered_indices) / len(predictions) if predictions else 0.0

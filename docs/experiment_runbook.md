@@ -18,6 +18,27 @@ Set-Location C:\Users\Admin\Desktop\crawler
 | RMIT expert-audit generator/validator | Yes | CSV, manifest, and summary under `data/advising/` |
 | `eval_rmit.py` | Yes | `output/rmit_evaluation_run.json` |
 | `eval_harness.py` for FactKG/CoDEx | Only with `--output_file` | The path supplied to `--output_file` |
+| `scripts/run_benchmark_sweep.py` | Yes | Per-cell JSON + `.log` and a `process_manifest.json` under `output/experiments/<run_id>/` |
+| `scripts/diagnose_object_namespace.py` | Only with `--out` | The path supplied to `--out` |
+| `scripts/sweep_entity_threshold.py` | Only with `--out` | The path supplied to `--out` |
+| `scripts/run_kg_destruction_control.py` | Only with `--out` | The path supplied to `--out` |
+
+## 1a. Evaluation Flags That Change What Is Measured
+
+Three flags materially change the measurement and must be recorded with any result. All three are
+serialized into the output JSON.
+
+| Flag | Default | Why it matters |
+| --- | --- | --- |
+| `--sample {random,prefix}` | `random` | `data/factkg_test.jsonl` is sorted into contiguous reasoning-type blocks, so `prefix` selects 2 of 13 reasoning types and inflates the majority floor from 51.35% to 64.60%. Use `prefix` only to reproduce a historical run. |
+| `--sample_seed` | `20260725` | Determines which rows enter a random sample. Runs are comparable only at the same seed. |
+| `--entity_link_threshold` | `0.35` | Minimum bi-encoder cosine score to accept an entity link. Below the threshold the subject is reported unresolved instead of linked to its nearest neighbour. **Open-domain graphs need ≈0.95**; select it with `scripts/sweep_entity_threshold.py` on a held-out split, never on the evaluation rows. |
+| `--withhold_unresolved_claims` (both harnesses) | off | Ablation. Withholds claims whose subject could not be linked from the verdict vote. Measured at **+0.8 pts on CoDEx** (inside that cell's 7.2% flip rate) against **−2.67 pts on RMIT** (reproducible), so it ships disabled. Re-measure after the coordinator-existence decomposition is fixed. |
+
+> [!IMPORTANT]
+> A crash is no longer scored as a prediction. Both harnesses leave the row unscored (`pred: null`,
+> `raw_pred: "Error"`) and report `n_scored` alongside `total_evaluated`. Accuracy is computed over
+> scored rows only. Always check `n_unscored_errors` before citing an accuracy.
 
 > [!IMPORTANT]
 > If `--output_file` is omitted from a FactKG or CoDEx command, metrics are printed to the terminal but no result JSON is written.
@@ -40,7 +61,7 @@ Run the regression suite before an experiment:
 & .venv\Scripts\python.exe -m unittest discover -s tests -v
 ```
 
-Expected current result: 23 tests pass.
+Expected current result: **35 tests pass**.
 
 ### Local LLM
 
@@ -361,14 +382,58 @@ The following entry points are intentionally disabled because they previously ge
 
 Do not cite historical numbers in the invalidated benchmark or calibration reports. Check [experiment_registry.md](experiment_registry.md) and `experiments/registry.json` before using any artifact.
 
-## 9. Recommended Run Order
+## 9. Full Sweep and Grounding Gate
 
-1. Run all tests.
-2. Run the RMIT benchmark generator only if the v0 candidate needs regeneration.
-3. Generate the expert packet only before review begins.
-4. Validate the expert packet.
+### Run every cell in one command
+
+```powershell
+& .venv\Scripts\python.exe scripts\run_benchmark_sweep.py --run_id rerun_20260726_fixed
+```
+
+This launches RMIT (n=300) plus FactKG and CoDEx (n=500) for both engines under **both** sampling
+modes, capped at `--max_parallel` concurrent processes. It writes per-cell JSON and logs plus a
+`process_manifest.json` recording exit codes, UTC timestamps, and the exact argv of every cell.
+
+Recompute all aggregates from row-level predictions afterwards:
+
+```powershell
+& .venv\Scripts\python.exe scripts\summarize_rerun_results.py `
+    --dir output\experiments\rerun_20260726_fixed `
+    --out output\experiments\rerun_20260726_fixed\aggregate_summary.json
+```
+
+### Grounding gate (run before citing any accuracy)
+
+Accuracy that does not move when the graph's factual content is destroyed is not verification.
+
+```powershell
+& .venv\Scripts\python.exe -m scripts.run_kg_destruction_control `
+    --entity_link_threshold 0.95 `
+    --out output\diagnostics\codex_destruction_control.json
+```
+
+The script exits non-zero if the mean prediction change rate under within-relation shuffling falls
+below `--min_change_rate` (default 0.20). Before the stage-3 repair this control sat at 1.8–2.8%.
+
+### Stage-3 diagnostics
+
+```powershell
+& .venv\Scripts\python.exe -m scripts.diagnose_object_namespace --thresholds 0.35 0.95
+& .venv\Scripts\python.exe -m scripts.sweep_entity_threshold
+```
+
+Both isolate stages 3–4 with no LLM, so they are deterministic and take seconds. Note they
+reconstruct the **asserted** triple from `text`: in `codex_test.jsonl` the `triples` field holds the
+*true* edge for `Contradicted` rows, so feeding it directly hands the verifier the answer.
+
+## 10. Recommended Run Order
+
+1. Run all tests (expect 35 passing).
+2. Run the stage-3 diagnostics and the grounding gate; both are fast and LLM-free.
+3. Run the RMIT benchmark generator only if the v0 candidate needs regeneration.
+4. Generate the expert packet only before review begins, then validate it.
 5. Run the RMIT paired graph-destruction control.
-6. Run 20-row FactKG and CoDEx smoke tests with `--max_workers 1`.
-7. Inspect the saved JSON files.
-8. Freeze model and command settings.
-9. Run the selected fixed-size public experiments with unique output filenames.
+6. Run small FactKG and CoDEx smoke tests.
+7. Freeze model and command settings.
+8. Run `scripts/run_benchmark_sweep.py` with a fresh `--run_id`.
+9. Recompute aggregates from rows and register the result as `candidate`.

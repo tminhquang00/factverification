@@ -27,9 +27,16 @@
 | E0 prerequisite graph destruction v0 | `candidate_component_control` | Destruction sensitivity is usable for development; baseline performance is not an independent efficacy result |
 | RMIT expected-set audit v0 | `awaiting_single_expert_review` | Review test/calibration courses before revising the dataset |
 | Rerun 2026-07-25 pre-fix multi-model | `candidate_blocked_by_implementation_defect` | Superseded; retained as the defect case study only |
-| Stage-3 `mapped` name shadowing | `fixed_and_verified` | Repaired; regression test added; suite 23 → 25 |
-| Harness substitutes default label on exception | `confirmed_defect_requires_fix` | **Still present.** Crashes are scored as predictions |
-| **Rerun 2026-07-25 post-fix multi-model** | `candidate` | **Current primary results.** Cite via `rerun_20260725_paper.md`; not validated |
+| Stage-3 `mapped` name shadowing | `fixed_and_verified` | Repaired; regression test added |
+| Harness substitutes default label on exception | `fixed_and_verified` | **Repaired 2026-07-26.** Crashes leave the row unscored; `n_scored` reported |
+| Stage-3 object namespace substitution | `fixed_and_verified` | Object now compared in the graph's label namespace. CoDEx `Supported` recall 0.039 → 0.974 |
+| Entity-link rejection threshold | `candidate` | Configurable; 0.95 dev-selected for CoDEx. Calibrated on one graph only |
+| Stage-3 relation normalization | `fixed_and_verified` | Fallback now fires on non-canonical LLM relation phrasings |
+| Unresolved claims vote in aggregation | `implemented_measured_disabled_by_default` | Benefit inside noise floor (+0.8 CoDEx), cost reproducible (−2.67 RMIT). Behind `--withhold_unresolved_claims` |
+| Rerun 2026-07-25 post-fix multi-model | `candidate` | Superseded by the 2026-07-26 study |
+| **Rerun 2026-07-26 final public benchmarks** | `candidate` | **Current primary results** (`rerun_20260726_final`, shipped defaults). Cite via `rerun_20260726_paper.md`; not validated |
+| CoDEx LLM-pipeline graph destruction | `candidate` | Prediction change 1.8–2.8% → 28.9%. RQ1 affirmative for the LLM pipeline on CoDEx |
+| FactKG prefix-sampling artifact | `candidate` | Prefix slice covers 2 of 13 reasoning types; arms differ 23–27 pts on identical code |
 | LLM pipeline run-to-run variance | `candidate` | 5.75% mean prediction flip rate; single-run gaps <2 pts not resolvable |
 | Legacy master sweep | `disabled` | Do not run |
 

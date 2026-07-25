@@ -59,9 +59,12 @@ not completeness: it says nothing about world coverage.
 
 * `verification_pipeline.py:230` returns after a single decomposition pass when the graph holds
   fewer than 50 entities, hardcoding `decomposition_agreement = 1.0`. FactKG builds a *transient
-  per-claim* context, always far below 50, so **every FactKG run silently skips self-consistency**.
-  RMIT (exactly 50, strict `<`) and CoDEx (1,182) do run both passes. Cross-dataset confidence
-  comparison is confounded.
+  per-claim* context whose size varies from 0 to 197 entities, so self-consistency is skipped on
+  **≈454 of 500 rows (90.8%) and runs on the other ≈46** — the regime switches *within* the dataset,
+  row by row, which is a worse confound than a uniform one. (The existing paper states it is skipped
+  on every FactKG row; that is an overstatement.) RMIT sits exactly at the boundary — 50 courses,
+  strict `<` — and CoDEx (1,182) always runs both passes. Cross-dataset *and* within-FactKG
+  confidence comparison is confounded.
 * Confidence is a heuristic product with no fitted mapping to correctness. Coverage and selective
   accuracy are descriptive statistics at the default operating point, **not risk guarantees**.
 
@@ -363,23 +366,30 @@ labels**: of 17,203 object values, **17,203 are labels and 0 are Q-ids**. Stage 
 then compares a Q-id against a label list and reports a value mismatch. The object is not *failing*
 to link — it is linking *successfully into the wrong namespace*.
 
-Verdict as a function of object namespace, over all 500 oracle-parsed rows:
+> **Methodological note.** In `codex_test.jsonl` the `triples` field holds the *asserted* edge for
+> `Supported` and `Not-in-KG` rows, but the **true** edge for `Contradicted` rows (whose `text`
+> asserts a different object). A diagnostic that feeds `triples[0]` for every row therefore hands
+> the verifier the correct fact on the `Contradicted` class. The figures below instead reconstruct
+> the **asserted** triple — gold subject and relation, object parsed from `text` — for all rows
+> (496 of 500 match the three surface templates; 4 are dropped).
 
-| Object after stage 3 | Rows | → `Supported` | → `Contradicted` | → `Not-in-KG` |
-| --- | ---: | ---: | ---: | ---: |
-| resolved to a Q-id | 480 (96.0%) | **0** | 434 | 46 |
-| left as a label | 20 (4.0%) | 16 | 4 | 0 |
+Under that corrected oracle parse, the object-position defect costs the following:
 
-**No row whose object resolved to a Q-id was ever verified `Supported`** — 96% of rows are excluded
-from that class before the graph is consulted on the merits. This single defect explains all three
-CoDEx observations:
+| Configuration | Accuracy | `Supported` R / P | `Contradicted` R / P | `Not-in-KG` R / P |
+| --- | ---: | :---: | :---: | :---: |
+| Current (object → entity id) | **44.35%** | **0.071** / 0.786 | 0.994 / 0.374 | 0.258 / 1.000 |
+| Object compared in label space | **69.15%** | 1.000 / 0.774 | 0.872 / 0.570 | 0.258 / 1.000 |
 
-1. **`Supported` recall 0.039 / 0.006** — the class is nearly unreachable.
+**A one-line change in stage 3 is worth +24.8 accuracy points.** The defect explains all three CoDEx
+observations:
+
+1. **`Supported` recall 0.039 / 0.006** — the class is nearly unreachable; under oracle parsing it
+   goes to **1.000** once objects are compared in label space.
 2. **`Supported` precision 1.000 is an artifact**, not soundness. The survivors are exactly the rows
    where object linking happened to *fail* to find a Q-id.
-3. **`Contradicted` recall 0.753 is largely spurious** — 163 of 166 gold-`Contradicted` rows are
-   scored correct because the object mismatched for a *namespace* reason, not a factual one. The
-   class is right for the wrong reason.
+3. **`Contradicted` recall is spurious.** Currently the pipeline answers `Contradicted` on 436 of
+   496 rows — recall 0.994 at precision 0.374. It is not detecting contradiction; it is failing to
+   match anything. After the fix, recall falls to 0.872 while precision rises to 0.570.
 
 It also explains the engine split: `azure-4.1-mini` produces decompositions whose subjects resolve
 more often (→ `Contradicted` via value mismatch), while `gemma-4-e4b` leaves more unresolved
@@ -397,26 +407,27 @@ Applying the same within-relation shuffle used by the RMIT control to `data/code
 
 | Condition | Accuracy | Δ vs baseline | Prediction change rate |
 | --- | ---: | ---: | ---: |
-| Baseline | 44.00% | — | — |
-| Shuffled, seed 11 | 42.40% | −1.60 | **2.60%** |
-| Shuffled, seed 23 | 42.80% | −1.20 | **2.00%** |
-| Shuffled, seed 37 | 42.60% | −1.40 | **3.00%** |
-| All relations removed | 35.80% | −8.20 | 90.80% |
+| Baseline | 44.35% | — | — |
+| Shuffled, seed 11 | 42.14% | −2.22 | **2.42%** |
+| Shuffled, seed 23 | 42.94% | −1.41 | **1.81%** |
+| Shuffled, seed 37 | 42.34% | −2.02 | **2.82%** |
 
-**Destroying every fact in the graph while preserving its structure changes 2–3% of predictions and
-costs 1.2–1.6 accuracy points.** For comparison, the same class of destruction costs the
-deterministic completeness component **42.4 points**. The emptied condition collapses to a constant
-`Not-in-KG` (35.80% — precisely the majority floor), confirming the pipeline reacts to a relation
-key's *presence* but not to its *content*.
+**Destroying every fact in the graph while preserving its structure changes under 3% of predictions
+and costs 1.4–2.2 accuracy points.** For comparison, the same class of destruction costs the
+deterministic completeness component **42.4 points**.
 
 **RQ1 is therefore answered negatively for the LLM pipeline on CoDEx**: its verdicts are almost
-entirely recoverable without the graph's factual content. This is a stronger and cheaper result than
-the full LLM destruction control the paper defers to future work, and it follows directly from
+entirely recoverable without the graph's factual content. This follows directly from
 [§5.2](#52-new-finding-a-the-codex-supported-collapse-is-an-object-namespace-bug-not-a-linking-failure) —
 a namespace mismatch is invariant to what the values actually say.
 
-The 44.00% oracle-parsed baseline against the LLM pipeline's 41.80% also indicates the LLM
-decomposition stage contributes ≈2 points on CoDEx over gold parsing.
+**This is a repairable property, not an inherent one.** With the object-position fix plus a
+calibrated entity-link threshold ([§9](#9-prioritised-next-steps)), the same control on the same
+rows drops accuracy from 82.06% to 56.1–60.5% and changes **27.2–30.9%** of predictions — an order
+of magnitude more sensitive. Restoring that sensitivity is the natural acceptance test for the fix.
+
+> Superseded: the repairs were implemented and evaluated on 2026-07-26. See
+> [`rerun_20260726_paper.md`](rerun_20260726_paper.md) for the delivered result.
 
 ### 5.4 New finding C — the FactKG subsample is severely unrepresentative
 
@@ -519,7 +530,9 @@ interpretation corrections arising from [§5](#5-analysis).
 | 6.3 | CoDEx "carries the registry finding `invalidated_heldout_edges_present`" | That finding attaches to `data/codex_s_tri.jsonl` (from `generate_tristate_benchmarks.py`). The runs used `data/codex_test.jsonl` + `data/codex_graph.json`, where **all 179 `Not-in-KG` rows genuinely lack the edge**. The real CoDEx data problem is different — see [§5.5](#55-new-finding-d--codex-not-in-kg-is-decidable-without-reasoning-but-the-pipeline-forfeits-it). |
 | 8.3, 10 | RQ1 "unanswered for the LLM pipeline"; next step 2 defers the control | The control is runnable on the deterministic stage-3/4 path and **answers RQ1 negatively for CoDEx**. |
 | 8.3 | "Prefix sampling … need not be representative" | Quantified: FactKG covers **2 of 13** reasoning types with a floor inflated from 51.35% to 64.60%. CoDEx sampling is benign. |
-| 10, step 3 | "Diagnose CoDEx `Supported` recall, beginning with entity linking" | Entity linking is not the fault. Fix object-position namespace handling in `stage_3_map_claim_to_triple`. |
+| 10, step 3 | "Diagnose CoDEx `Supported` recall, beginning with entity linking" | *Subject* linking is not the fault. Fix object-position namespace handling in `stage_3_map_claim_to_triple` (+24.8 pts), then calibrate the *subject* link threshold (+14.1 pts more). |
+| 2.2 | "**Every** FactKG run therefore performs a single decomposition pass" | Transient contexts range 0–197 entities. Self-consistency is skipped on ≈90.8% of rows and runs on ≈9.2% — a within-dataset regime switch. |
+| 2.1 / README §3 | Offline `C(R)` completeness profiles presented as a Stage-4 component | `BaseKGAdapter.completeness()` and `data/completeness_profiles/*.json` are **never read by `VerificationPipeline`**. Only `Catalog2Adapter` subclasses it, and catalog2 is not in this study. `get_world_assumption` computes occupancy live from `self.store.courses`. The profiles are dead code with respect to every result reported. |
 
 ---
 

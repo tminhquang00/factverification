@@ -1,4 +1,7 @@
 from concurrent.futures import ThreadPoolExecutor
+import json
+import os
+import tempfile
 import threading
 import unittest
 
@@ -172,6 +175,101 @@ class StageThreeFallbackTests(unittest.TestCase):
                     include_metadata=True,
                 )
                 self.assertIsInstance(result[0], tuple)
+
+
+class ObjectNamespaceTests(unittest.TestCase):
+    """Stage 3 must return objects in the namespace the graph stores its values in.
+
+    Entity records are keyed by id (course code on RMIT, Q-id on CoDEx) while their field
+    values are surface labels. Substituting the resolved entity *key* for the object made
+    stage 4 compare an id against a label, so every genuinely true open-domain claim was
+    reported as a value mismatch. On CoDEx this drove `Supported` recall to 0.039.
+    """
+
+    GRAPH = {
+        "Q295919": {
+            "course_id": "Q295919",
+            "title": "Sam Cooke",
+            "prerequisites": [],
+            "credits": 12,
+            "school": "Science",
+            "coordinator": "Unknown",
+            "coordinator_email": "Unknown",
+            "genre": ["rhythm and blues", "soul music"],
+        },
+        "Q216288": {
+            "course_id": "Q216288",
+            "title": "rhythm and blues",
+            "prerequisites": [],
+            "credits": 12,
+            "school": "Science",
+            "coordinator": "Unknown",
+            "coordinator_email": "Unknown",
+        },
+    }
+
+    def _pipeline(self, threshold=0.95):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "graph.json")
+            with open(path, "w", encoding="utf-8") as handle:
+                json.dump(self.GRAPH, handle)
+            return VerificationPipeline(
+                kg_path=path,
+                llm_client=FakeLLMClient(),
+                entity_link_threshold=threshold,
+            )
+
+    def test_object_is_returned_as_a_label_not_an_entity_key(self):
+        pipeline = self._pipeline()
+        triple = pipeline.stage_3_map_claim_to_triple(
+            {
+                "subject": "Sam Cooke",
+                "relation": "genre",
+                "object": "rhythm and blues",
+                "claim_type": "genre",
+            }
+        )
+        # The object resolves to entity Q216288, but the graph stores the label.
+        self.assertEqual(triple[2], "rhythm and blues")
+        self.assertNotEqual(triple[2], "Q216288")
+
+    def test_true_open_domain_claim_verifies_as_supported(self):
+        pipeline = self._pipeline()
+        triple = pipeline.stage_3_map_claim_to_triple(
+            {
+                "subject": "Sam Cooke",
+                "relation": "genre",
+                "object": "rhythm and blues",
+                "claim_type": "genre",
+            }
+        )
+        self.assertEqual(pipeline.stage_4_verify_triple(*triple)["verdict"], "Supported")
+
+    def test_false_open_domain_claim_still_contradicts(self):
+        """The fix must not turn every claim into Supported."""
+        pipeline = self._pipeline()
+        triple = pipeline.stage_3_map_claim_to_triple(
+            {
+                "subject": "Sam Cooke",
+                "relation": "genre",
+                "object": "polka",
+                "claim_type": "genre",
+            }
+        )
+        self.assertEqual(pipeline.stage_4_verify_triple(*triple)["verdict"], "Contradicted")
+
+    def test_absent_subject_is_rejected_rather_than_linked_to_a_wrong_entity(self):
+        """Below the threshold, link_entity must abstain instead of returning a near neighbour."""
+        pipeline = self._pipeline(threshold=0.95)
+        self.assertIsNone(pipeline.link_entity("Ingrid Michaelson"))
+
+    def test_permissive_threshold_preserves_legacy_linking_behaviour(self):
+        pipeline = self._pipeline(threshold=0.35)
+        self.assertIsNotNone(pipeline.link_entity("Sam Cooke"))
+
+    def test_threshold_is_validated(self):
+        with self.assertRaises(ValueError):
+            VerificationPipeline(entity_link_threshold=1.5)
 
 
 class VerificationMetadataTests(unittest.TestCase):

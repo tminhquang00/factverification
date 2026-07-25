@@ -80,7 +80,7 @@ def run_e2_routing_ablation(dataset_name, data, pipeline, max_workers=10):
                     preds[idx] = "Contradicted" if dataset_name == "factkg" else "Not-in-KG"
                     golds[idx] = data[idx]["gold_label"]
             
-        acc, _, ci_low, ci_high = compute_metrics(preds, golds)
+        acc, _, ci_low, ci_high, _n_scored = compute_metrics(preds, golds)
         macro_f1 = compute_macro_f1(preds, golds)
         fcr = compute_fcr(preds, golds)
         

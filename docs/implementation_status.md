@@ -1,8 +1,32 @@
 # Research Implementation Status
 
-**Updated:** 2026-07-25  
+**Updated:** 2026-07-26  
 **Current scope decision:** RMIT first; synthetic Catalog2 is an engineering control only.  
 **Expert-review design:** One handbook reviewer; no inter-annotator agreement claim.
+
+## Public-Benchmark Repair (2026-07-26)
+
+Five defects were found and repaired after the `rerun_20260725_fixed` review. Four are pipeline or
+harness correctness bugs; one is a calibration gap. All are covered by the regression suite
+(23 → **35 tests**).
+
+| Defect | Site | Effect | Status |
+| --- | --- | --- | --- |
+| Object returned in the wrong namespace | `stage_3_map_claim_to_triple` | Stage 4 compared an entity id against a stored label, so every true open-domain claim read as a value mismatch. CoDEx `Supported` recall 0.039. | fixed |
+| No entity-link rejection threshold | `link_entity` | Subjects absent from the graph were snapped to a nearest neighbour instead of reported unresolved. | fixed + calibrated |
+| Relation-normalization fallback too narrow | `stage_3_map_claim_to_triple` | Fired only on a literal `unclassified` relation, so LLM phrasings (`is member of` vs the field `member of political party`) fell through to `Not-in-KG`. | fixed |
+| Unlinkable claims voted in aggregation | `verify_statement` | One decomposition fragment could override a correctly verified claim. | fixed |
+| Crashes scored as predictions | `eval_harness.py`, `eval_rmit.py` | An exception was replaced by the dataset default label and scored. | fixed |
+
+Two measurement changes accompany them:
+
+* **Sampling.** `--sample random` is now the default. `data/factkg_test.jsonl` is sorted into
+  contiguous reasoning-type blocks, so the previous `data[:500]` selected 2 of 13 reasoning types
+  and inflated the majority floor from 51.35% to 64.60%. Both modes are run so results can be
+  attributed to the code fix rather than to the sample.
+* **Grounding gate.** `scripts/run_kg_destruction_control.py` fails a run whose predictions survive
+  destruction of the graph's factual content. Pre-repair this control sat at 1.8–2.8% prediction
+  change; the gate requires >20%.
 
 ## Completed
 
@@ -70,4 +94,4 @@ Run:
 & .venv\Scripts\python.exe -m unittest discover -s tests -v
 ```
 
-Current result: 23 tests passing.
+Current result: **35 tests passing**.

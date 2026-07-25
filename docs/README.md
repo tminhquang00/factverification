@@ -17,20 +17,27 @@ Welcome to the documentation suite for the **Knowledge Graph (KG) Fact-Verificat
 
 ## 📁 Directory Structure & Index
 
-### 🏛️ 1. Architecture & Design (`docs/architecture/`)
-Comprehensive documentation of the framework architecture, algorithms, and pipeline stages:
+### 🏛️ 1. Architecture (`docs/architecture/`)
 
-* **[design.md](file:///c:/Users/Admin/Desktop/crawler/docs/architecture/design.md)**: System Architecture Specification, 4-Stage Tri-State Pipeline, Graph Completeness Estimator $C(R)$, and Selective Abstention.
-* **[system_expert_review.md](file:///c:/Users/Admin/Desktop/crawler/docs/architecture/system_expert_review.md)**: Algorithm-level technical breakdown for domain experts, including mathematical definitions for dynamic relation completeness and entity linking routines.
-* **[system_explained_v3.md](file:///c:/Users/Admin/Desktop/crawler/docs/architecture/system_explained_v3.md)**: Version 3 complete pipeline overview with detailed state machine flows.
+Split by whether a document describes the **built** system or the **intended** one — see
+[architecture/README.md](architecture/README.md) for the index.
+
+* **[methodology.md](architecture/methodology.md)**: **Architecture-of-record.** Pipeline stages with real algorithms and parameters, evaluation protocol, instrumentation rules, and the methodology's own limitations.
+* **[system_expert_review.md](architecture/system_expert_review.md)**: Code-level reference — call ordering, fallback chains, thresholds, plus a table of everything previously documented but not implemented.
+* **[system_explained_v3.md](architecture/system_explained_v3.md)**: Plain-language walkthrough of the working system.
+* **[design.md](architecture/design.md)**: *(design roadmap, largely unbuilt)* Verification-oriented ontology, harness specification, dataset inventory, contribution claims. Carries a build-status map.
+
+> [!WARNING]
+> Three things the architecture docs previously stated incorrectly: routing uses **relation occupancy**, not completeness; confidence is **uncalibrated** and **no NLI component exists** anywhere in the codebase; and the offline $C(R)$ profiles in `data/completeness_profiles/` are **dead code** with respect to verification.
 
 ---
 
 ### 📊 2. Benchmarks & Evaluation (`docs/benchmarks/`)
 Empirical research findings across university handbook and public benchmark datasets (`FactKG`, `CoDEx`, `MetaQA`, `FEVER`):
 
-* **[comprehensive_report_20260725.md](benchmarks/comprehensive_report_20260725.md)**: **Independent review of the current study (2026-07-25).** Recomputes every headline figure from row-level artifacts, then adds four new diagnostics: the CoDEx `Supported` collapse is an object-namespace bug rather than an entity-linking failure; the LLM verification path is *not* graph-grounded on CoDEx (2–3% prediction change under full content destruction); the FactKG prefix sample covers only 2 of 13 reasoning types; and CoDEx `Not-in-KG` is forfeited by an entity linker with no rejection threshold. Carries corrections to the paper below.
-* **[rerun_20260725_paper.md](benchmarks/rerun_20260725_paper.md)**: **Authoritative current study (2026-07-25).** Full paper — data provenance, system description, methodology, defect analysis, results, run-to-run reliability, threats to validity, and an explicit statement of what may and may not be claimed. All aggregates are recomputed from row-level predictions.
+* **[rerun_20260726_paper.md](benchmarks/rerun_20260726_paper.md)**: **Authoritative current study (2026-07-26).** Repairs five implementation defects and re-runs every cell under both sampling protocols. CoDEx moves 41.8% → 81.8% and 37.2% → 75.8% on identical rows; `Supported` recall 0.039 → 0.981; the graph-destruction control moves from 1.8–2.8% to 28.9% prediction change, establishing graph-groundedness for the LLM pipeline for the first time. Also shows FactKG's previous numbers were a prefix-sampling artifact.
+* **[comprehensive_report_20260725.md](benchmarks/comprehensive_report_20260725.md)**: Independent review of the 2026-07-25 study that located those defects. Recomputes every headline figure from row-level artifacts, then adds four new diagnostics: the CoDEx `Supported` collapse is an object-namespace bug rather than an entity-linking failure; the LLM verification path is *not* graph-grounded on CoDEx (2–3% prediction change under full content destruction); the FactKG prefix sample covers only 2 of 13 reasoning types; and CoDEx `Not-in-KG` is forfeited by an entity linker with no rejection threshold. Carries corrections to the paper below.
+* **[rerun_20260725_paper.md](benchmarks/rerun_20260725_paper.md)**: *(superseded)* The 2026-07-25 measurement-integrity study. Full paper — data provenance, system description, methodology, defect analysis, results, run-to-run reliability, threats to validity, and an explicit statement of what may and may not be claimed. All aggregates are recomputed from row-level predictions.
 * **[rerun_20260725_report.md](benchmarks/rerun_20260725_report.md)**: Chronological run log for the same study (pre-fix sweep, repair, post-fix sweep). Carries no results tables.
 * **[research_report.md](file:///c:/Users/Admin/Desktop/crawler/docs/benchmarks/research_report.md)**: *(invalidated)* Historical benchmark report including multi-model evaluations, bootstrap CIs, selective accuracy, coverage, and ablation studies.
 * **[calibration_report.md](file:///c:/Users/Admin/Desktop/crawler/docs/benchmarks/calibration_report.md)**: *(invalidated)* Historical analysis of tri-state decision calibration, abstention threshold sweeps, and risk-coverage curves.
@@ -47,29 +54,32 @@ Figures, plots, and visualizations referenced in research reports:
 
 ---
 
-### 🏆 5. Current Study — 2026-07-25 (`rerun_20260725_fixed`)
+### 🏆 5. Current Study — 2026-07-26 (`rerun_20260726_final`)
 
-Full paper: **[benchmarks/rerun_20260725_paper.md](benchmarks/rerun_20260725_paper.md)**.
-Post-fix results, recomputed from row-level predictions via `scripts/summarize_rerun_results.py`.
-Zero crashes in all six cells.
+Full paper: **[benchmarks/rerun_20260726_paper.md](benchmarks/rerun_20260726_paper.md)**.
+Ten cells, recomputed from row-level predictions. Zero unscored rows in every cell.
 
-| LLM Engine | Dataset | $n$ | Accuracy | 95% CI (IID rows) | Majority floor | Macro-F1 | Coverage | Selective Acc. |
-|:---|:---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
-| `azure-4.1-mini` | RMIT | 300 | **97.33%** | [95.33%, 99.00%] | 41.67% | 0.988 | 97.67% | 99.66% |
-| `gemma-4-e4b` | RMIT | 300 | **92.33%** | [89.33%, 95.33%] | 41.67% | 0.921 | 97.67% | 94.54% |
-| `azure-4.1-mini` | FactKG | 500 | **80.20%** | [76.80%, 83.40%] | 64.60% | 0.777 | 56.60% | 74.56% |
-| `gemma-4-e4b` | FactKG | 500 | **79.80%** | [76.20%, 83.20%] | 64.60% | 0.752 | 40.00% | 85.50% |
-| `azure-4.1-mini` | CoDEx | 500 | **41.80%** | [37.40%, 46.00%] | 35.80% | 0.345 | 99.60% | 41.77% |
-| `gemma-4-e4b` | CoDEx | 500 | **37.20%** | [32.60%, 41.60%] | 35.80% | 0.285 | 89.60% | 37.05% |
+| LLM Engine | Dataset | Sampling | $n$ | Accuracy | 95% CI (IID rows) | Floor | Macro-F1 | Coverage | Selective Acc. |
+|:---|:---|:---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| `azure-4.1-mini` | CoDEx | prefix | 500 | **81.80%** | [78.20%, 85.00%] | 35.80% | 0.819 | 99.80% | 81.80% |
+| `azure-4.1-mini` | CoDEx | random | 500 | **83.80%** | [80.40%, 87.00%] | 35.00% | 0.831 | 99.60% | 83.90% |
+| `gemma-4-e4b` | CoDEx | prefix | 500 | **75.80%** | [72.00%, 79.40%] | 35.80% | 0.763 | 89.20% | 79.37% |
+| `gemma-4-e4b` | CoDEx | random | 500 | **78.60%** | [75.00%, 82.60%] | 35.00% | 0.784 | 91.20% | 82.24% |
+| `azure-4.1-mini` | FactKG | prefix | 500 | 83.60% | [80.40%, 86.60%] | 64.60% | 0.821 | 62.20% | 77.17% |
+| `azure-4.1-mini` | FactKG | random | 500 | 57.60% | [53.20%, 61.80%] | 52.80% | 0.491 | 69.40% | 58.50% |
+| `gemma-4-e4b` | FactKG | prefix | 500 | 82.60% | [79.40%, 85.60%] | 64.60% | 0.797 | 46.60% | 87.55% |
+| `gemma-4-e4b` | FactKG | random | 500 | 55.80% | [51.20%, 60.20%] | 52.80% | 0.451 | 62.80% | 59.55% |
+| `azure-4.1-mini` | RMIT | full | 300 | 97.33% | [95.33%, 99.00%] | 41.67% | 0.988 | 97.67% | 99.66% |
+| `gemma-4-e4b` | RMIT | full | 300 | 90.33% | [86.67%, 93.67%] | 41.67% | 0.913 | 95.67% | 94.42% |
 
 Principal findings:
 
-* **A stage-3 defect was inflating FactKG.** `verification_pipeline.py:305` shadowed the `mapped()` helper, crashing 22.6% of FactKG rows under `azure-4.1-mini`; the harness converted 113 crashes into 111 scored-correct predictions. Repaired (suite 23 → 25 tests). The post-fix delta is only −1.2 points, but that is a coincidence of label alignment, not evidence the defect was harmless.
-* **CoDEx has lost the `Supported` class**: recall 0.039 (`azure-4.1-mini`) and 0.006 (`gemma-4-e4b`) at precision 1.000. The engines then fail in opposite directions — 67.7% of true-`Supported` rows become `Contradicted` under azure versus 70.3% becoming `Not-in-KG` under gemma — which the headline accuracies hide entirely.
-* **Run-to-run nondeterminism flips 2.0–9.6% of predictions** (mean 5.75%) between identical reruns, so single-run gaps below ~2 points are not resolvable.
-* **RMIT is engine-sensitive by reasoning type**, on disjoint slices: `gemma-4-e4b` drops to 58.0% on existence, `azure-4.1-mini` to 86.0% on multi-hop.
-* **The graph-destruction control reproduces bit-identically**: 100% baseline → 48.5% empty → 57.6% shuffled, all intervals excluding zero.
-* **RMIT's absolute accuracy is structurally inflated**: `eval_rmit.py:54` verifies a template string interpolated from the same KG fields the verifier then queries.
+* **Five implementation defects, not model capability, drove the previous CoDEx result.** The dominant one substituted the resolved entity *key* for a claim's object while graphs store surface labels, so stage 4 reported a value mismatch for every true claim. On identical rows CoDEx moves **41.8% → 81.8%** and **37.2% → 75.8%**, with `Supported` recall **0.039 → 0.981**. Suite 23 → 35 tests.
+* **The pipeline is now graph-grounded.** Destroying all factual content while preserving structure changes **28.9%** of predictions, versus 1.8–2.8% before — answering RQ1 affirmatively for the LLM pipeline for the first time.
+* **FactKG's previous numbers were a prefix-sampling artifact.** `factkg_test.jsonl` is sorted into contiguous reasoning-type blocks; the first 500 rows cover **2 of 13** types at a 64.60% floor against the full set's 51.35%. Under random sampling accuracy falls to ~58%.
+* **FactKG reasoning type determines the gold label almost deterministically** — every `*|substitution` type is ~100% `Contradicted`, every plain `numN` type ~98% `Supported` — so the pipeline's `Contradicted` prior scores 0.94–1.00 on one group and 0.03–0.33 on the other. This is the C3 binary-benchmark trap, measured.
+* **Crashes are no longer scored as predictions** in either harness, closing the instrumentation flaw the 2026-07-25 study identified.
+* **RMIT's absolute accuracy remains structurally inflated**: `eval_rmit.py:54` verifies a template string interpolated from the same KG fields the verifier then queries. Both RMIT deltas are within the measured noise floor; `gemma-4-e4b` awaits replication.
 
 ---
 
