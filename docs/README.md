@@ -49,6 +49,10 @@ Figures, plots, and visualizations referenced in research reports:
 
 * **`docs/assets/risk_coverage_curves.png`**: Risk vs Coverage curves across confidence estimation methods.
 * **`docs/assets/score_distributions.png`**: Confidence score distribution plots for covered vs abstained claims.
+* **`docs/assets/rerun_20260726_accuracy_overview.png`**: Accuracy by dataset / sampling / model with 95% CI, from the current study ([§3.1](benchmarks/rerun_20260726_paper.md#31-headline)).
+* **`docs/assets/rerun_20260726_sampling_delta.png`**: Accuracy(random) − accuracy(prefix) per dataset/model, the sampling-order-effect evidence for [§4](benchmarks/rerun_20260726_paper.md#4-factkg-the-benchmark-was-measuring-a-label-prior).
+* **`docs/assets/rerun_20260726_coverage_vs_selective_accuracy.png`**: Coverage vs. selective accuracy across all ten cells.
+* **`docs/assets/rerun_20260726_rmit_by_reasoning_type.png`**: RMIT accuracy by reasoning type, azure-4.1-mini vs. gemma-4-e4b ([§3.5](benchmarks/rerun_20260726_paper.md#35-rmit-existence-under-gemma-4-e4b-a-slice-too-noisy-to-attribute)).
 
 ---
 

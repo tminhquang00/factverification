@@ -182,6 +182,10 @@ zero unscored rows.
 | RMIT | `azure-4.1-mini` | full | 300 | 97.33% | [95.3, 99.0] | 41.7% | 0.988 | 97.7% | 99.7% |
 | RMIT | `gemma-4-e4b` | full | 300 | 90.33% | [86.7, 93.7] | 41.7% | 0.913 | 95.7% | 94.4% |
 
+![Accuracy by dataset / sampling / model, with 95% CI whiskers and the majority-class floor for each cell](../assets/rerun_20260726_accuracy_overview.png)
+
+![Coverage vs. selective accuracy for every cell — FactKG's low coverage is the forced-binary collapse of §4, not the pipeline abstaining unprompted](../assets/rerun_20260726_coverage_vs_selective_accuracy.png)
+
 ### 3.2 Before / after, sampling held constant
 
 Prefix arms are the **same rows** the previous study evaluated.
@@ -243,6 +247,8 @@ Note the `azure-4.1-mini` CoDEx cells flip only 0.2–1.0% of predictions while 
 Azure ones for the same resolution.
 
 ### 3.5 RMIT `existence` under `gemma-4-e4b`: a slice too noisy to attribute
+
+![RMIT accuracy by reasoning type, azure-4.1-mini vs. gemma-4-e4b — existence is the one slice where gemma-4-e4b trails by a wide margin](../assets/rerun_20260726_rmit_by_reasoning_type.png)
 
 An earlier draft of this study reported the `existence` slice as a reproducible regression caused by
 D4. **Further replication does not support that claim, and it is withdrawn.** The full record:
@@ -330,6 +336,8 @@ and script hashes; 100% → 48.5% empty → 57.6% shuffled), confirming the repa
 ---
 
 ## 4. FactKG: the benchmark was measuring a label prior
+
+![Accuracy(random sample) minus accuracy(prefix sample), per dataset and model — FactKG drops 26-27 points under either engine while CoDEx is flat](../assets/rerun_20260726_sampling_delta.png)
 
 FactKG accuracy falls from ~81–85% (prefix) to ~58% (random) on identical code. The per-type
 breakdown for `gemma-4-e4b` explains it:
@@ -495,6 +503,9 @@ Set-Location C:\Users\Admin\Desktop\crawler
 & .venv\Scripts\python.exe scripts\summarize_rerun_results.py `
     --dir output\experiments\<new_run_id> `
     --out output\experiments\<new_run_id>\aggregate_summary.json
+
+# Charts + markdown summary from that aggregate (the four figures in this paper)
+& .venv\Scripts\python.exe scripts\plot_experiment_results.py --dir output\experiments\<new_run_id>
 ```
 
 ### Artifact inventory
@@ -504,6 +515,7 @@ Set-Location C:\Users\Admin\Desktop\crawler
 | **Headline** row-level predictions and per-cell logs | `output/experiments/rerun_20260726_final/*.json`, `*.log` |
 | **Headline** process manifest (exit codes, UTC timestamps, argv) | `output/experiments/rerun_20260726_final/process_manifest.json` |
 | **Headline** recomputed aggregates | `output/experiments/rerun_20260726_final/aggregate_summary.json` |
+| **Headline** charts + markdown summary (source of the four figures above) | `output/experiments/rerun_20260726_final/analysis/` (checked-in copies: `docs/assets/rerun_20260726_*.png`) |
 | Replicate pair (D4 enabled), used for §3.4 dispersion | `output/experiments/rerun_20260726_fixed/`, `output/experiments/rerun_20260726_rep2/` |
 | D4 ablation arms | `output/experiments/ablation/` |
 | Deterministic RMIT control | `output/experiments/rerun_20260726_fixed/rmit_graph_control.*` |
