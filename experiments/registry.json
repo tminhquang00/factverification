@@ -1,0 +1,162 @@
+{
+  "schema_version": 1,
+  "review_date": "2026-07-25",
+  "artifact_policy": {
+    "authoritative_results": "Only artifacts marked validated may support research claims.",
+    "row_level_requirement": "Every aggregate must be reproducible from saved row-level predictions.",
+    "legacy_outputs": "Existing output files are retained for forensic comparison and are not citable."
+  },
+  "entries": [
+    {
+      "id": "substrate_store_isolation",
+      "status": "validated",
+      "entry_point": "tests/test_kg_store.py",
+      "outputs": [],
+      "reason": "Regression test proves stores loaded from different graph paths are independent."
+    },
+    {
+      "id": "substrate_context_isolation",
+      "status": "validated",
+      "entry_point": "tests/test_verification_pipeline.py",
+      "outputs": [],
+      "reason": "Regression tests prove concurrent transient contexts are isolated and claim scores are local to verification calls."
+    },
+    {
+      "id": "e01_graph_destruction",
+      "status": "invalidated_requires_rewrite",
+      "entry_point": "scripts/run_phase0_diagnostics.py",
+      "outputs": ["output/diagnostics/phase0_diagnostics_results.json"],
+      "reason": "The artifact lacks paired baseline predictions, does not include the reported RMIT control, and predates graph-store isolation fixes."
+    },
+    {
+      "id": "e2_world_assumption_routing",
+      "status": "implementation_repaired_requires_rerun",
+      "entry_point": "scripts/run_revised_experiments.py",
+      "outputs": ["output/experiments/revised_experiments_results.json"],
+      "reason": "Routing modes now execute distinct policies, but the saved artifact predates the fix and conditions still require cached decomposition and linking for a valid paired comparison."
+    },
+    {
+      "id": "e3_completeness_denominator",
+      "status": "invalidated_simulated",
+      "entry_point": "scripts/run_revised_experiments.py",
+      "outputs": ["output/experiments/revised_experiments_results.json"],
+      "reason": "The experiment returned fixed constants rather than measurements."
+    },
+    {
+      "id": "e4_selective_threshold_sweep",
+      "status": "invalidated_simulated",
+      "entry_point": "scripts/run_revised_experiments.py",
+      "outputs": ["output/experiments/revised_experiments_results.json", "docs/benchmarks/calibration_report.md"],
+      "reason": "Coverage, selective accuracy, AURC, and tie fractions were generated from formulas or unsupported report tables."
+    },
+    {
+      "id": "e5_meta_confidence",
+      "status": "invalidated_label_leakage",
+      "entry_point": "scripts/train_meta_confidence.py",
+      "outputs": ["output/meta_confidence_ablation.json", "output/experiments/revised_experiments_results.json"],
+      "reason": "Synthetic confidence features were sampled conditionally on gold correctness and fallback records were artificially separable."
+    },
+    {
+      "id": "institutional_claim_benchmark",
+      "status": "component_only_not_advising_completeness",
+      "entry_point": "eval_rmit.py",
+      "outputs": ["output/rmit_evaluation_run.json"],
+      "reason": "The benchmark contains synthetic individual claims derived from the verification graph, not set-valued advising answers."
+    },
+    {
+      "id": "public_tristate_benchmarks",
+      "status": "invalidated_heldout_edges_present",
+      "entry_point": "scripts/generate_tristate_benchmarks.py",
+      "outputs": ["data/codex_s_tri.jsonl", "data/metaqa_tri.jsonl"],
+      "reason": "Records marked held out do not remove the true edge from the graph used by verification."
+    },
+    {
+      "id": "rmit_prerequisite_completeness_v0",
+      "status": "synthetic_candidate_not_advisor_audited",
+      "entry_point": "scripts/generate_advising_benchmark.py",
+      "outputs": [
+        "data/advising/rmit_prerequisite_completeness_v0.jsonl",
+        "data/advising/rmit_prerequisite_completeness_v0.manifest.json"
+      ],
+      "reason": "The candidate has deterministic KG-derived expected sets and entity-grouped splits, but only one advising intent, 50 source courses, template responses, and no independent advisor audit."
+    },
+    {
+      "id": "e0_prerequisite_graph_destruction_v0",
+      "status": "candidate_component_control",
+      "entry_point": "scripts/run_graph_destruction_control.py",
+      "outputs": [
+        "output/experiments/e0_prerequisite_graph_destruction_v0.rows.jsonl",
+        "output/experiments/e0_prerequisite_graph_destruction_v0.summary.json"
+      ],
+      "reason": "Paired test rows, five zero-fixed-point within-relation derangements, an empty-graph control, hashes, and subject-clustered intervals are recorded. The 100% baseline is circular because synthetic gold labels and predictions share the same deterministic expected-set query, so only graph-destruction sensitivity is currently informative."
+    },
+    {
+      "id": "rmit_prerequisite_expected_set_audit_v0",
+      "status": "awaiting_single_expert_review",
+      "entry_point": "scripts/generate_advisor_audit_packet.py",
+      "outputs": [
+        "data/advising/rmit_prerequisite_expected_set_audit_v0.csv",
+        "data/advising/rmit_prerequisite_expected_set_audit_v0.manifest.json",
+        "data/advising/rmit_prerequisite_expected_set_audit_v0.summary.json"
+      ],
+      "reason": "All 50 cached handbook sources are linked. The chosen design has one reviewer, so it supports source audit and corrections but not inter-annotator agreement. Twenty calibration/test courses are required before dataset revision."
+    },
+    {
+      "id": "rerun_20260725_multimodel",
+      "status": "candidate_blocked_by_implementation_defect",
+      "entry_point": "eval_rmit.py, eval_harness.py, scripts/run_graph_destruction_control.py",
+      "outputs": [
+        "output/experiments/rerun_20260725/",
+        "output/experiments/rerun_20260725/aggregate_summary.json",
+        "docs/benchmarks/rerun_20260725_report.md"
+      ],
+      "reason": "Row-level predictions are saved for every cell and all aggregates are recomputed from them by scripts/summarize_rerun_results.py. The FactKG cells are not citable: a name-shadowing defect at verification_pipeline.py:305 raised TypeError on 22.6 percent of azure-4.1-mini rows and 6.0 percent of gemma-4-e4b rows, and eval_harness substitutes the majority class for each crash, so reported FactKG accuracy is inflated and the true value is only bounded within [59.2, 81.4] percent. RMIT and CoDEx cells completed without crashes but inherit the existing benchmark-validity limits: RMIT gold labels are graph-derived and circular, and CoDEx retains the invalidated_heldout_edges_present finding. Intervals are IID row bootstraps, not clustered, because the saved rows carry no subject-entity field."
+    },
+    {
+      "id": "stage3_mapped_name_shadowing_defect",
+      "status": "fixed_and_verified",
+      "entry_point": "verification_pipeline.py:268,305,382",
+      "outputs": [
+        "docs/benchmarks/rerun_20260725_paper.md",
+        "tests/test_verification_pipeline.py"
+      ],
+      "reason": "stage_3_map_claim_to_triple defined a local helper named mapped on line 268 and rebound the same name to a boolean on line 305 inside the unclassified-relation fallback, so every later return mapped(...) raised TypeError: 'bool' object is not callable. Reproduced deterministically with a stub LLM. Repaired by renaming the boolean to relation_was_mapped; StageThreeFallbackTests added to cover the fallback path; suite went from 23 to 25 passing tests. The post-fix sweep shows zero crashes across all six cells and no previously-masked exception. Because every exit path from the branch called mapped(), the zero pre-fix crash count on RMIT and CoDEx proves the branch never executed there, so the repair cannot have altered those datasets."
+    },
+    {
+      "id": "harness_substitutes_default_label_on_exception",
+      "status": "confirmed_defect_requires_fix",
+      "entry_point": "eval_harness.py:277-288",
+      "outputs": [
+        "docs/benchmarks/rerun_20260725_paper.md"
+      ],
+      "reason": "On any exception the harness substitutes the dataset default label (Contradicted on FactKG, Not-in-KG otherwise) and scores it as a prediction. Because Contradicted is also FactKG's majority class, 113 crashes were scored as 111 correct predictions, converting an implementation failure into apparent accuracy. This instrumentation flaw is independent of the stage-3 defect it concealed and is still present. Crashes must be recorded as an explicit non-scored outcome."
+    },
+    {
+      "id": "rerun_20260725_fixed_multimodel",
+      "status": "candidate",
+      "entry_point": "eval_rmit.py, eval_harness.py, scripts/run_graph_destruction_control.py",
+      "outputs": [
+        "output/experiments/rerun_20260725_fixed/",
+        "output/experiments/rerun_20260725_fixed/aggregate_summary.json",
+        "docs/benchmarks/rerun_20260725_paper.md"
+      ],
+      "reason": "Post-fix sweep over RMIT n=300, FactKG n=500, CoDEx n=500 for azure-4.1-mini and google/gemma-4-e4b, plus the deterministic graph-destruction control. All exit codes 0, zero crashes, row-level predictions saved, and every aggregate recomputed from those rows by scripts/summarize_rerun_results.py. Not promoted to validated: RMIT gold labels are circular because eval_rmit.py verifies a template string interpolated from the fields the verifier queries; CoDEx retains the invalidated_heldout_edges_present finding; FactKG collapses Not-in-KG into Contradicted so abstention cannot be scored; intervals are IID row bootstraps rather than clustered because the rows carry no subject-entity field; sampling is by prefix rather than random; and a single run per cell is inadequate given a measured 5.75 percent mean prediction flip rate between identical reruns."
+    },
+    {
+      "id": "llm_pipeline_run_to_run_variance",
+      "status": "candidate",
+      "entry_point": "scripts/compare_runs.py",
+      "outputs": [
+        "docs/benchmarks/rerun_20260725_paper.md"
+      ],
+      "reason": "Paired pre-fix and post-fix runs under identical settings, restricted to the four cells where the repair is provably unreachable, flip 2.0 to 9.6 percent of individual predictions (mean 5.75 percent) while accuracy moves at most 2.0 points. Aggregate stability therefore understates instability, and single-run engine comparisons below roughly 2 points are not resolvable. The --seed flag in eval_rmit.py seeds only Python's random module and does not constrain LLM sampling."
+    },
+    {
+      "id": "legacy_master_sweep",
+      "status": "disabled",
+      "entry_point": "scripts/run_full_experiment_sweep.py",
+      "outputs": ["output/experiments/full_experiment_sweep_report.json"],
+      "reason": "The runner combined invalidated experiments and inserted hand-written p-values."
+    }
+  ]
+}

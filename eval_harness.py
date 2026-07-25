@@ -157,31 +157,6 @@ def run_pipeline_verification(claim: str, triples: list, pipeline, dataset: str)
             res = pipeline.verify_statement(claim, custom_system_prompt=metaqa_prompt)
         return res["overall_verdict"]
 
-    # Populate pipeline's KG store temporarily with the context triples
-    pipeline.store.courses = {}
-    
-    for s, r, o in triples:
-        s_norm = str(s).strip()
-        r_norm = str(r).strip()
-        o_norm = str(o).strip()
-        
-        if s_norm not in pipeline.store.courses:
-            pipeline.store.courses[s_norm] = {
-                "course_id": s_norm,
-                "title": s_norm,
-                "credits": 12,
-                "school": "Science",
-                "coordinator": "Unknown",
-                "coordinator_email": "Unknown",
-                "prerequisites": [],
-                "description": ""
-            }
-            
-        pipeline.store.courses[s_norm][r_norm] = o_norm
-
-    # Rebuild entity index
-    pipeline.build_entity_index()
-    
     if dataset == "factkg":
         # Extract unique relations present in the context triples for this specific claim
         relations = list(set(t[1] for t in triples))
@@ -197,7 +172,7 @@ def run_pipeline_verification(claim: str, triples: list, pipeline, dataset: str)
             "Each claim must have: 'subject', 'relation', 'object', 'claim_type'. "
             "Set 'claim_type' to the relation name if it fits. If the claim does not fit any of the relations, set 'claim_type' to 'unclassified'."
         )
-        res = pipeline.verify_statement(claim, custom_system_prompt=factkg_prompt)
+        res = pipeline.verify_with_context(claim, triples, custom_system_prompt=factkg_prompt)
     else:
         res = pipeline.verify_statement(claim)
         

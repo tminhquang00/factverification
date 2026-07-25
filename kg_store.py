@@ -16,17 +16,6 @@ class KGStore:
         self.graph_json_path = graph_json_path
         self.courses = {}
         self.load_graph()
-        
-        # Schema definition: relation completeness declarations
-        # 'closed': Complete. If fact is not present in graph, it is false (Contradicted).
-        # 'open': Incomplete. If fact is not present, it is unknown (Not-in-KG).
-        self.relations_completeness = {
-            "requiresPrerequisite": "closed",
-            "hasCreditValue": "closed",
-            "offeredInTerm": "closed",
-            "taughtBy": "open",
-            "governedBy": "open"
-        }
 
     def load_graph(self):
         """Loads the compiled JSON graph database.
@@ -139,15 +128,10 @@ class KGStore:
             }
         return None
 
-    def estimate_relation_completeness(self, relation: str) -> float:
-        """Estimates relation completeness score (0.0 to 1.0) based on graph density and schema signals."""
+    def estimate_relation_occupancy(self, relation: str) -> float:
+        """Returns the fraction of entity records with a populated field for the relation."""
         if not self.courses:
             return 0.0
-            
-        # For public benchmarks, the dynamic store size is very small, and we assume
-        # context triples represent a complete closed-world context for that sample
-        if len(self.courses) < 50:
-            return 0.95
             
         # Map ontology relations to actual keys in rmit_graph.json
         field_map = {
@@ -159,29 +143,22 @@ class KGStore:
             "email": "coordinator_email"
         }
         
-        # Check standard fallbacks for public datasets (FactKG / FEVER)
-        # where the graph is dynamically constructed per-sample
-        if relation in ["capital", "birthPlace", "founded", "father", "mother", "office", "type", "successor", "spouse", "child", "religion", "husband", "wife", "parent company", "garrison"]:
-            return 0.95
-            
         key = field_map.get(relation, relation)
-        
-        # Calculate density in the store
         total = len(self.courses)
         present = 0
-        
+
         for course in self.courses.values():
-            val = course.get(key)
-            if val is not None and val != "" and val != "Unknown" and val != []:
+            if key not in course:
+                continue
+            value = course.get(key)
+            if value is not None and value != "" and value != "Unknown":
                 present += 1
-                
-        density = present / total if total > 0 else 0.0
-        
-        # Adjust density using cardinality rules (e.g. credits / school are mandatory ontology fields)
-        if relation in ["requiresPrerequisite", "hasCreditValue", "partOfSchool"]:
-            return max(density, 0.95)
-            
-        return density
+
+        return present / total if total > 0 else 0.0
+
+    def estimate_relation_completeness(self, relation: str) -> float:
+        """Compatibility alias for the historical, occupancy-based score API."""
+        return self.estimate_relation_occupancy(relation)
 
     def find_graph_path(self, start_entity: str, target_entity: str, max_depth: int = 3) -> list:
         """Finds paths between start_entity and target_entity up to max_depth in the KG."""
@@ -239,16 +216,11 @@ class KGStore:
         return found_paths
 
     def get_relation_completeness(self, relation: str) -> str:
-        score = self.estimate_relation_completeness(relation)
+        score = self.estimate_relation_occupancy(relation)
         if score >= 0.85:
             return "closed"
         return "open"
 
-# Singleton instance
-_kg_store_instance = None
-
 def get_kg_store(graph_json_path="data/rmit_graph.json") -> KGStore:
-    global _kg_store_instance
-    if _kg_store_instance is None:
-        _kg_store_instance = KGStore(graph_json_path)
-    return _kg_store_instance
+    """Creates an independent store for the requested graph snapshot."""
+    return KGStore(graph_json_path)

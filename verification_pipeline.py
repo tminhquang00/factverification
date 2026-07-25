@@ -2,7 +2,9 @@ import os
 import re
 import json
 import logging
+import threading
 import numpy as np
+from answer_completeness import AnswerCompletenessVerifier, QuerySpec, parse_query_spec
 from kg_store import get_kg_store
 from llm_client import get_llm_client
 
@@ -63,24 +65,29 @@ class VerificationPipeline:
     - Stage 2: Claim decomposition into atomic triples using LLM-based agreement.
     - Stage 3: Entity resolution via academic pruning and bi-encoder embedding lookups.
     - Stage 4: Semantic dispatch logic (CWA vs OWA routing) evaluating against KGStore.
-    - Stage 5 / Engine: Calibrated selective abstention downgrading low-confidence decisions to Not-in-KG.
+    - Stage 5 / Engine: Optional legacy heuristic abstention for experimental compatibility.
     """
-    def __init__(self, kg_path="data/rmit_graph.json", llm_client=None, oracle_linking=False, decontextualize=False, smooth_calibration=False):
+    def __init__(self, kg_path="data/rmit_graph.json", llm_client=None, oracle_linking=False, decontextualize=False, smooth_calibration=False, routing_mode="dynamic", cwa_threshold=0.85, abstention_threshold=None):
         """Initializes the verification pipeline, loads graph store, and builds lookup index."""
+        if routing_mode not in {"dynamic", "fixed_cwa", "fixed_owa"}:
+            raise ValueError(f"Unsupported routing mode: {routing_mode}")
         self.store = get_kg_store(kg_path)
         self.llm_client = llm_client or get_llm_client()
         self.bi_encoder = get_bi_encoder()
         self.oracle_linking = oracle_linking
         self.decontextualize = decontextualize
         self.smooth_calibration = smooth_calibration
+        self.routing_mode = routing_mode
+        self.cwa_threshold = cwa_threshold
         self.entity_index = {}
         self.entity_keys_list = []
         self.entity_codes_list = []
         self.entity_embeddings = None
         self.build_entity_index()
-        self.abstention_threshold = 0.5
+        self.abstention_threshold = abstention_threshold
         self.last_entity_score = 1.0
         self.last_decomp_agreement = 1.0
+        self._context_lock = threading.RLock()
 
     def build_entity_index(self):
         """Builds a lookup index and bi-encoder embedding cache mapping titles to entity IDs."""
@@ -126,27 +133,29 @@ class VerificationPipeline:
         text = re.sub(r"^(dr\.|dr|associate professor|assoc\.\s*prof\.|prof\.|prof|professor)\s+", "", text)
         return re.sub(r"[^a-z0-9]", "", text)
 
-    def link_entity(self, text: str) -> str:
+    def link_entity(self, text: str, include_score: bool = False):
         """Links a text string (entity name, code, or generic label) to a valid ID in the KG using bi-encoder embeddings."""
+        def resolved(entity_code, score):
+            if include_score:
+                return entity_code, score
+            self.last_entity_score = score
+            return entity_code
+
         if not text:
-            self.last_entity_score = 0.0
-            return None
+            return resolved(None, 0.0)
             
         raw_text = str(text).strip()
         # Direct check for 6-digit code
         code_match = re.search(r"\b\d{6}\b", raw_text)
         if code_match:
-            self.last_entity_score = 1.0
-            return code_match.group(0)
+            return resolved(code_match.group(0), 1.0)
 
         # Normalized exact lookup short-circuit
         clean = self.normalize_text(raw_text)
         if clean in self.entity_index:
-            self.last_entity_score = 1.0
-            return self.entity_index[clean]
+            return resolved(self.entity_index[clean], 1.0)
         if raw_text in self.entity_index:
-            self.last_entity_score = 1.0
-            return self.entity_index[raw_text]
+            return resolved(self.entity_index[raw_text], 1.0)
 
         # Bi-encoder cosine similarity top-k search
         if self.entity_embeddings is not None and len(self.entity_keys_list) > 0:
@@ -158,8 +167,7 @@ class VerificationPipeline:
             best_score = float(sims[best_idx])
             
             if best_score >= 0.35:
-                self.last_entity_score = max(0.2, min(1.0, best_score))
-                return self.entity_codes_list[best_idx]
+                return resolved(self.entity_codes_list[best_idx], max(0.2, min(1.0, best_score)))
 
         # Token overlap fallback
         best_match = None
@@ -179,14 +187,18 @@ class VerificationPipeline:
                     best_match = code
                     
         if best_overlap > 0:
-            self.last_entity_score = best_overlap / max(1.0, len(clean_words))
-            return best_match
+            return resolved(best_match, best_overlap / max(1.0, len(clean_words)))
             
-        self.last_entity_score = 0.0
-        return None
+        return resolved(None, 0.0)
 
-    def stage_2_decompose(self, text: str, custom_system_prompt: str = None) -> list:
+    def stage_2_decompose(self, text: str, custom_system_prompt: str = None, include_metadata: bool = False):
         """Stage 2: Decomposes a statement into schema-guided JSON claims."""
+        def decomposed(claims, agreement):
+            if include_metadata:
+                return claims, agreement
+            self.last_decomp_agreement = agreement
+            return claims
+
         system_prompt = custom_system_prompt or (
             "You are a factual claim extraction assistant. Decompose the text into atomic, schema-guided claims. "
             "Each claim must map to one of these valid relation classes:\n"
@@ -216,8 +228,7 @@ class VerificationPipeline:
 
         # Single-run fast pass for small public benchmark graph contexts
         if len(self.store.courses) < 50:
-            self.last_decomp_agreement = 1.0
-            return claims1
+            return decomposed(claims1, 1.0)
             
         try:
             run2 = self.llm_client.generate_json(prompt, system_prompt=system_prompt, temperature=0.2)
@@ -249,11 +260,18 @@ class VerificationPipeline:
                 consistent_claims.append(c1)
                 
         # Calculate agreement rate
-        self.last_decomp_agreement = len(consistent_claims) / max(1, len(claims1), len(claims2))
-        return consistent_claims
+        agreement = len(consistent_claims) / max(1, len(claims1), len(claims2))
+        return decomposed(consistent_claims, agreement)
 
-    def stage_3_map_claim_to_triple(self, claim: dict) -> tuple:
+    def stage_3_map_claim_to_triple(self, claim: dict, include_metadata: bool = False) -> tuple:
         """Stage 3: Maps a parsed claim to a structured (subject_code, relation, object_val) triple."""
+        def mapped(subject_code, mapped_relation, object_value, entity_score):
+            triple = (subject_code, mapped_relation, object_value)
+            if include_metadata:
+                return triple, entity_score
+            self.last_entity_score = entity_score
+            return triple
+
         subject_raw = claim.get("subject")
         relation = claim.get("relation")
         object_raw = claim.get("object")
@@ -263,14 +281,12 @@ class VerificationPipeline:
         if getattr(self, "oracle_linking", False):
             gold_triple = claim.get("gold_triple") or claim.get("triples", [None])[0] if isinstance(claim.get("triples"), list) and claim.get("triples") else None
             if gold_triple and len(gold_triple) >= 3:
-                self.last_entity_score = 1.0
-                return str(gold_triple[0]), str(gold_triple[1]), str(gold_triple[2])
+                return mapped(str(gold_triple[0]), str(gold_triple[1]), str(gold_triple[2]), 1.0)
             elif claim.get("gold_subject"):
-                self.last_entity_score = 1.0
-                return str(claim.get("gold_subject")), str(claim.get("gold_relation", relation)), str(claim.get("gold_object", object_raw))
+                return mapped(str(claim.get("gold_subject")), str(claim.get("gold_relation", relation)), str(claim.get("gold_object", object_raw)), 1.0)
 
         # Link Subject Entity
-        subject_code = self.link_entity(subject_raw)
+        subject_code, entity_score = self.link_entity(subject_raw, include_score=True)
         
         # Fallback mapping for unresolved / unclassified relations (e.g. in public datasets)
         if (relation == "unclassified" or claim_type == "unclassified" or not relation) and subject_code:
@@ -286,7 +302,8 @@ class VerificationPipeline:
             }
             
             if actual_relations:
-                mapped = False
+                # Must not shadow the mapped() helper defined at the top of this method.
+                relation_was_mapped = False
                 # Bi-encoder cosine similarity relation matching
                 try:
                     rel_obj_str = f"{relation or ''} {object_raw or ''}".strip()
@@ -299,11 +316,11 @@ class VerificationPipeline:
                     if float(sims[best_r_idx]) >= 0.30:
                         relation = actual_relations[best_r_idx]
                         claim_type = relation
-                        mapped = True
+                        relation_was_mapped = True
                 except Exception as e:
                     logger.debug(f"Bi-encoder relation mapping fallback: {e}")
 
-                if not mapped:
+                if not relation_was_mapped:
                     for act_rel in actual_relations:
                         act_rel_clean = str(act_rel).lower().strip()
                         obj_clean = str(object_raw).lower().strip()
@@ -312,56 +329,67 @@ class VerificationPipeline:
                         if act_rel_clean in obj_clean or act_rel_clean in rel_clean or any(w in obj_clean.split() for w in act_rel_clean.split() if len(w) > 3):
                             relation = act_rel
                             claim_type = act_rel
-                            mapped = True
+                            relation_was_mapped = True
                         elif act_rel_clean in synonyms:
                             for syn in synonyms[act_rel_clean]:
                                 if syn in obj_clean or syn in rel_clean:
                                     relation = act_rel
                                     claim_type = act_rel
-                                    mapped = True
+                                    relation_was_mapped = True
                                     break
-                        if mapped:
+                        if relation_was_mapped:
                             if any(w in obj_clean for w in ["had", "has", "exists", "exist", "possess", "possesses", "someone", "something", "any", "husband", "wife", "spouse"]):
                                 object_raw = act_rel
                             break
 
         if claim_type == "unclassified" or relation == "unclassified":
-            return None, "unclassified", None
+            return mapped(None, "unclassified", None, entity_score)
 
         if not subject_code:
             if relation == "taughtBy":
-                return subject_raw, relation, str(object_raw).strip()
-            return None, "entity_unresolved", subject_raw
+                return mapped(subject_raw, relation, str(object_raw).strip(), entity_score)
+            return mapped(None, "entity_unresolved", subject_raw, entity_score)
 
         # Link Object Entity for open-domain relations
         if relation not in ["requiresPrerequisite", "hasCreditValue", "partOfSchool", "taughtBy", "offeredInTerm"]:
-            object_code = self.link_entity(object_raw)
+            object_code, object_score = self.link_entity(object_raw, include_score=True)
+            entity_score = min(entity_score, object_score)
             if object_code:
-                return subject_code, relation, object_code
+                return mapped(subject_code, relation, object_code, entity_score)
 
         if relation == "requiresPrerequisite":
             # Check for negation words in object_raw before calling link_entity
             if str(object_raw).lower().strip() in ["none", "null", "no prerequisites", "no prerequisite", "empty", "no", "none.", "unknown course", "no courses", "n/a"]:
-                return subject_code, relation, "none"
-            object_code = self.link_entity(object_raw)
+                return mapped(subject_code, relation, "none", entity_score)
+            object_code, object_score = self.link_entity(object_raw, include_score=True)
+            entity_score = min(entity_score, object_score)
             if not object_code:
-                return subject_code, "object_unresolved", object_raw
-            return subject_code, relation, object_code
+                return mapped(subject_code, "object_unresolved", object_raw, entity_score)
+            return mapped(subject_code, relation, object_code, entity_score)
             
         elif relation == "hasCreditValue":
             # Extract credit points number
             match = re.search(r"\b\d+\b", str(object_raw))
             if match:
-                return subject_code, relation, int(match.group(0))
-            return subject_code, relation, object_raw
+                return mapped(subject_code, relation, int(match.group(0)), entity_score)
+            return mapped(subject_code, relation, object_raw, entity_score)
             
         elif relation == "partOfSchool":
-            return subject_code, relation, str(object_raw).strip()
+            return mapped(subject_code, relation, str(object_raw).strip(), entity_score)
             
         elif relation == "taughtBy":
-            return subject_code, relation, str(object_raw).strip()
+            return mapped(subject_code, relation, str(object_raw).strip(), entity_score)
             
-        return subject_code, relation, object_raw
+        return mapped(subject_code, relation, object_raw, entity_score)
+
+    def get_world_assumption(self, relation: str) -> str:
+        """Selects closed- or open-world handling under the configured routing treatment."""
+        if self.routing_mode == "fixed_cwa":
+            return "closed"
+        if self.routing_mode == "fixed_owa":
+            return "open"
+        relation_score = self.store.estimate_relation_occupancy(relation)
+        return "closed" if relation_score >= self.cwa_threshold else "open"
 
     def stage_4_verify_triple(self, subject_code: str, relation: str, object_val) -> dict:
         """Stage 4: Executes semantics-dispatched verification against the KG."""
@@ -415,7 +443,7 @@ class VerificationPipeline:
 
             return {"verdict": "Not-in-KG", "reason": f"Course code {subject_code} not found in KG.", "evidence": None}
 
-        completeness = self.store.get_relation_completeness(relation)
+        world_assumption = self.get_world_assumption(relation)
         course = self.store.get_course(subject_code)
 
         if relation == "requiresPrerequisite":
@@ -466,7 +494,7 @@ class VerificationPipeline:
                     "evidence": f"({subject_code}, requiresPrerequisite, {intermediate_course}) -> ({intermediate_course}, requiresPrerequisite, {object_val})"
                 }
                 
-            if completeness == "closed":
+            if world_assumption == "closed":
                 return {
                     "verdict": "Contradicted",
                     "reason": f"Closed-world violation: Course {subject_code} does NOT require prerequisite {object_val}.",
@@ -521,7 +549,7 @@ class VerificationPipeline:
                 }
             else:
                 # Open world check
-                if completeness == "closed":
+                if world_assumption == "closed":
                     return {
                         "verdict": "Contradicted",
                         "reason": f"Coordinator mismatch. Claimed {object_val}, but actual is {coord['name']}.",
@@ -538,7 +566,7 @@ class VerificationPipeline:
         elif relation in course or relation in ["capital", "birthPlace", "founded", "father", "mother", "office", "type"]:
             actual_val = course.get(relation)
             if actual_val is None:
-                if completeness == "closed":
+                if world_assumption == "closed":
                     return {
                         "verdict": "Contradicted",
                         "reason": f"Closed-world violation: Relation {relation} does not exist for {subject_code}.",
@@ -610,9 +638,78 @@ class VerificationPipeline:
 
         return {"verdict": "Not-in-KG", "reason": f"Unrecognized relation class: {relation}", "evidence": None}
 
+    def verify_with_context(self, text: str, triples: list, custom_system_prompt: str = None) -> dict:
+        """Verifies against a transient triple context without leaking it into the background graph."""
+        courses = {}
+        for subject, relation, object_value in triples:
+            subject_id = str(subject).strip()
+            relation_id = str(relation).strip()
+            normalized_object = str(object_value).strip()
+            if subject_id not in courses:
+                courses[subject_id] = {
+                    "course_id": subject_id,
+                    "title": subject_id,
+                    "credits": 12,
+                    "school": "Science",
+                    "coordinator": "Unknown",
+                    "coordinator_email": "Unknown",
+                    "prerequisites": [],
+                    "description": "",
+                }
+            courses[subject_id][relation_id] = normalized_object
+
+        with self._context_lock:
+            previous_courses = self.store.courses
+            previous_index = self.entity_index
+            previous_keys = self.entity_keys_list
+            previous_codes = self.entity_codes_list
+            previous_embeddings = self.entity_embeddings
+            try:
+                self.store.courses = courses
+                self.build_entity_index()
+                return self.verify_statement(text, custom_system_prompt=custom_system_prompt)
+            finally:
+                self.store.courses = previous_courses
+                self.entity_index = previous_index
+                self.entity_keys_list = previous_keys
+                self.entity_codes_list = previous_codes
+                self.entity_embeddings = previous_embeddings
+
+    def verify_answer(self, query: str, response: str, query_spec: QuerySpec = None) -> dict:
+        """Verifies claim correctness and set-valued response completeness separately."""
+        kg_version = str(getattr(self.store, "graph_json_path", "unknown"))
+        resolved_spec = query_spec or parse_query_spec(query, kg_version=kg_version)
+        claim_verification = self.verify_statement(response)
+
+        if resolved_spec is None:
+            completeness = {
+                "verdict": "indeterminate",
+                "reason": "The query is not a supported set-valued advising intent.",
+            }
+            serialized_spec = None
+        else:
+            completeness = AnswerCompletenessVerifier(self.store).verify(
+                resolved_spec,
+                response,
+            ).to_dict()
+            serialized_spec = {
+                "intent": resolved_spec.intent.value,
+                "subject_id": resolved_spec.subject_id,
+                "kg_version": resolved_spec.kg_version,
+                "scope": dict(resolved_spec.scope),
+            }
+
+        return {
+            "query": query,
+            "response": response,
+            "query_spec": serialized_spec,
+            "claim_verification": claim_verification,
+            "answer_completeness": completeness,
+        }
+
     def verify_statement(self, text: str, custom_system_prompt: str = None) -> dict:
         """Runs the entire pipeline end-to-end for a given query/response statement."""
-        claims = self.stage_2_decompose(text, custom_system_prompt)
+        claims, decomp_agreement = self.stage_2_decompose(text, custom_system_prompt, include_metadata=True)
         
         if not claims:
             # Fallback if decomposition returns absolutely nothing
@@ -627,7 +724,8 @@ class VerificationPipeline:
         overall_verdict = "Supported"
 
         for claim in claims:
-            subj_code, relation, obj_val = self.stage_3_map_claim_to_triple(claim)
+            mapped_triple, entity_score = self.stage_3_map_claim_to_triple(claim, include_metadata=True)
+            subj_code, relation, obj_val = mapped_triple
             
             # Prune self-referential prerequisite claims (parser artifacts)
             if relation == "requiresPrerequisite" and subj_code == obj_val and subj_code is not None:
@@ -635,14 +733,31 @@ class VerificationPipeline:
                 continue
                 
             result = self.stage_4_verify_triple(subj_code, relation, obj_val)
+
+            relation_score = None
+            world_assumption = None
+            if relation not in ["unclassified", "entity_unresolved", "object_unresolved"]:
+                relation_score = self.store.estimate_relation_occupancy(relation)
+                world_assumption = self.get_world_assumption(relation)
             
             # Estimate confidence of Stage 4 verdict
-            confidence = self.calculate_confidence(subj_code, relation, obj_val, result["verdict"])
+            confidence = self.calculate_confidence(
+                subj_code,
+                relation,
+                obj_val,
+                result["verdict"],
+                entity_score=entity_score,
+                decomp_agreement=decomp_agreement,
+            )
             
-            # Calibrated selective abstention:
-            # If Contradicted verdict doesn't clear the selective threshold, downgrade to Not-in-KG (abstention)
+            # Legacy experimental abstention. The composed score is not calibrated and
+            # must not be used as a deployment risk guarantee.
             final_verdict = result["verdict"]
-            if final_verdict == "Contradicted" and confidence < self.abstention_threshold:
+            if (
+                final_verdict == "Contradicted"
+                and self.abstention_threshold is not None
+                and confidence < self.abstention_threshold
+            ):
                 logger.info(f"Selective Abstention: Downgrading Contradicted to Not-in-KG (Confidence {confidence:.2f} < Threshold {self.abstention_threshold:.2f})")
                 final_verdict = "Not-in-KG"
                 result["reason"] = f"Abstained from Contradicted verdict (confidence {confidence:.2f} < threshold {self.abstention_threshold:.2f}). " + result["reason"]
@@ -652,6 +767,12 @@ class VerificationPipeline:
                 "mapped_triple": (subj_code, relation, obj_val),
                 "verdict": final_verdict,
                 "confidence": confidence,
+                "confidence_calibrated": False,
+                "confidence_method": "legacy_occupancy_linking_product",
+                "entity_linking_score": entity_score,
+                "decomposition_agreement": decomp_agreement,
+                "relation_occupancy_score": relation_score,
+                "world_assumption": world_assumption,
                 "reason": result["reason"],
                 "evidence": result["evidence"]
             }
@@ -672,24 +793,26 @@ class VerificationPipeline:
             "claims": verified_claims
         }
 
-    def calculate_confidence(self, subj_code, relation, obj_val, verdict) -> float:
+    def calculate_confidence(self, subj_code, relation, obj_val, verdict, entity_score=None, decomp_agreement=None) -> float:
         """Computes the composed confidence score (0.0 to 1.0) of a given verification verdict."""
         if relation == "unclassified":
             base_conf = 1.0
         elif relation in ["entity_unresolved", "object_unresolved"]:
             base_conf = 0.5
         else:
-            completeness = self.store.estimate_relation_completeness(relation)
+            relation_occupancy = self.store.estimate_relation_occupancy(relation)
             if verdict == "Supported":
                 base_conf = 1.0
             elif verdict == "Contradicted":
-                base_conf = completeness
+                base_conf = relation_occupancy
             else: # Not-in-KG
-                base_conf = 1.0 - completeness
+                base_conf = 1.0 - relation_occupancy
                 
         # Compose confidence: base_conf * entity_score * decomp_agreement
-        entity_score = getattr(self, "last_entity_score", 1.0)
-        decomp_agreement = getattr(self, "last_decomp_agreement", 1.0)
+        if entity_score is None:
+            entity_score = getattr(self, "last_entity_score", 1.0)
+        if decomp_agreement is None:
+            decomp_agreement = getattr(self, "last_decomp_agreement", 1.0)
         
         # Bypass entity resolution discount for coordinator existence lookups (where subj_code is raw string)
         if subj_code and not re.match(r"^\d{6}$", str(subj_code)):

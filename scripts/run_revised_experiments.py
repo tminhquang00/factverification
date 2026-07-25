@@ -53,12 +53,8 @@ def run_e2_routing_ablation(dataset_name, data, pipeline, max_workers=10):
             gold = item["gold_label"]
             triples = item.get("triples", [])
             
-            if mode == "fixed_cwa":
-                pipeline.cwa_threshold = 0.0
-            elif mode == "fixed_owa":
-                pipeline.cwa_threshold = 1.0
-            else:
-                pipeline.cwa_threshold = 0.60
+            pipeline.routing_mode = mode
+            pipeline.cwa_threshold = 0.60
                 
             pred = run_pipeline_verification(claim, triples, pipeline, dataset_name)
             if dataset_name == "factkg":
@@ -169,6 +165,12 @@ def run_e5_cross_fitted_meta_confidence(dataset_name, records):
     }
 
 def main():
+    logger.error(
+        "This runner is disabled because E3/E4 are simulated and E5 contains synthetic fallback data. "
+        "See experiments/registry.json."
+    )
+    return 2
+
     os.makedirs("output/experiments", exist_ok=True)
     random.seed(42)
     
@@ -220,4 +222,4 @@ def main():
     logger.info("Saved Revised Experiments results to output/experiments/revised_experiments_results.json")
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

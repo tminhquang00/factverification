@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "audit_packet": "rmit_prerequisite_expected_set_audit_v0",
+  "status": "awaiting_single_expert_review",
+  "source_graph": "data/rmit_graph.json",
+  "source_graph_file_hash": "sha256:b54e43034ecfd50b8ff977ce9bee5ba0d37b1f1d53550763786c36f3fa26cc81",
+  "source_directory": "output/Study Type/Courses",
+  "course_count": 50,
+  "source_file_matches": 50,
+  "missing_source_files": 0,
+  "split_counts": {
+    "calibration": 12,
+    "development": 30,
+    "test": 8
+  },
+  "output": "data/advising/rmit_prerequisite_expected_set_audit_v0.csv",
+  "review_design": "single_expert_source_audit",
+  "allowed_expected_set_status": [
+    "correct",
+    "missing_items",
+    "extra_items",
+    "uncertain"
+  ],
+  "allowed_reviewer_confidence": [
+    "high",
+    "medium",
+    "low"
+  ]
+}

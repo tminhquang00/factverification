@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "audit_packet": "data/advising/rmit_prerequisite_expected_set_audit_v0.csv",
+  "status": "awaiting_review",
+  "total_courses": 50,
+  "reviewed_courses": 0,
+  "required_calibration_test_courses": 20,
+  "reviewed_required_courses": 0,
+  "remaining_required_courses": 20,
+  "expected_set_status_counts": {},
+  "reviewer_confidence_counts": {},
+  "validation_errors": [],
+  "single_reviewer_design": true,
+  "inter_annotator_agreement_available": false
+}

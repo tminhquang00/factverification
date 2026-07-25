@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "dataset": "rmit_prerequisite_completeness_v0",
+  "status": "synthetic_candidate_not_advisor_audited",
+  "source_graph": "data/rmit_graph.json",
+  "source_graph_file_hash": "sha256:b54e43034ecfd50b8ff977ce9bee5ba0d37b1f1d53550763786c36f3fa26cc81",
+  "kg_version": "sha256:4835e202f5e6a999fb7aaaa6a5faa900520b94564e1464afc041a5e07dcb218a",
+  "record_count": 181,
+  "subject_count": 50,
+  "split_counts": {
+    "calibration": 42,
+    "development": 106,
+    "test": 33
+  },
+  "condition_counts": {
+    "complete_correct": 50,
+    "complete_plus_distractor": 50,
+    "corrupted_member": 31,
+    "omit_multiple": 19,
+    "omit_one": 31
+  },
+  "verdict_counts": {
+    "complete": 100,
+    "incomplete": 81
+  },
+  "split_policy": "sha256(subject_id) modulo 10: development=0-5, calibration=6-7, test=8-9",
+  "generator": "scripts/generate_advising_benchmark.py"
+}

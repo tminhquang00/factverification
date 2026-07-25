@@ -1,20 +1,35 @@
+import argparse
 import os
 import json
 import logging
+import random
 from verification_pipeline import VerificationPipeline
 from eval_harness import compute_metrics, print_markdown_table
+from llm_client import get_llm_client
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("eval_rmit")
 
 def main():
-    test_set_path = "data/rmit_test_set.jsonl"
+    parser = argparse.ArgumentParser(description="RMIT Handbook Claim-Verification Evaluation")
+    parser.add_argument("--test_set", default="data/rmit_test_set.jsonl")
+    parser.add_argument("--limit", type=int, default=300)
+    parser.add_argument("--provider", choices=["azure", "local"], default=None)
+    parser.add_argument("--model_name", default=None)
+    parser.add_argument("--max_workers", type=int, default=1)
+    parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--output_file", default="output/rmit_evaluation_run.json")
+    args = parser.parse_args()
+
+    random.seed(args.seed)
+    test_set_path = args.test_set
     if not os.path.exists(test_set_path):
         logger.error(f"Test set not found at {test_set_path}. Run generate_dataset.py first.")
-        return
+        return 2
         
     logger.info("Initializing Verification Pipeline...")
-    pipeline = VerificationPipeline()
+    llm_client = get_llm_client(provider=args.provider, model=args.model_name)
+    pipeline = VerificationPipeline(llm_client=llm_client)
     
     logger.info(f"Loading evaluation dataset: {test_set_path}")
     data = []
@@ -22,6 +37,7 @@ def main():
         for line in f:
             if line.strip():
                 data.append(json.loads(line))
+    data = data[:args.limit]
                 
     logger.info(f"Loaded {len(data)} test items.")
     
@@ -49,7 +65,7 @@ def main():
         }
 
     from concurrent.futures import ThreadPoolExecutor, as_completed
-    with ThreadPoolExecutor(max_workers=10) as executor:
+    with ThreadPoolExecutor(max_workers=args.max_workers) as executor:
         futures = {executor.submit(evaluate_rmit_item, idx, item): idx for idx, item in enumerate(data)}
         for future in as_completed(futures):
             idx = futures[future]
@@ -114,13 +130,27 @@ def main():
         print("None! Perfect validation accuracy achieved.")
     print("="*60 + "\n")
 
-    # Save details to outputs/rmit_evaluation_run.json
-    output_dir = "output"
-    os.makedirs(output_dir, exist_ok=True)
-    report_json_path = os.path.join(output_dir, "rmit_evaluation_run.json")
+    report_json_path = args.output_file
+    output_dir = os.path.dirname(report_json_path)
+    if output_dir:
+        os.makedirs(output_dir, exist_ok=True)
+    report = {
+        "dataset": "rmit",
+        "method": "pipeline",
+        "model_name": llm_client.model,
+        "provider": llm_client.provider,
+        "seed": args.seed,
+        "max_workers": args.max_workers,
+        "total_evaluated": len(data),
+        "accuracy": accuracy,
+        "ci_95": [ci_lower, ci_upper],
+        "class_metrics": class_metrics,
+        "results_detail": results_detail,
+    }
     with open(report_json_path, "w", encoding="utf-8") as f:
-        json.dump(results_detail, f, indent=2)
+        json.dump(report, f, indent=2)
     logger.info(f"Saved detailed run logs to {report_json_path}")
+    return 0
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

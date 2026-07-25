@@ -69,6 +69,12 @@ def holm_bonferroni_correction(p_values):
     return adjusted_p
 
 def main():
+    logger.error(
+        "This legacy sweep is disabled because it combines invalidated experiments. "
+        "See experiments/registry.json and docs/research_improvement_plan.md."
+    )
+    return 2
+
     logger.info("Starting Master Full Experiment Sweep across all 4 Claims (C1-C4)...")
     os.makedirs("output/experiments", exist_ok=True)
     os.makedirs("docs", exist_ok=True)

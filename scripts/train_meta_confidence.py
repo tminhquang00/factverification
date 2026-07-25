@@ -271,6 +271,12 @@ def process_dataset_meta_calibration(dataset_name, records):
     return results
 
 def main():
+    logger.error(
+        "This runner is disabled because its confidence features are conditioned on gold labels. "
+        "See experiments/registry.json."
+    )
+    return 2
+
     llm_client = get_llm_client()
     
     datasets = {}
@@ -318,4 +324,4 @@ def main():
     logger.info("Successfully exported calibration metrics and ablation results to output/meta_confidence_ablation.json")
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

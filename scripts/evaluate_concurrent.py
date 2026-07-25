@@ -11,7 +11,7 @@ from verification_pipeline import VerificationPipeline
 from adapters.factkg_adapter import FactKGAdapter
 from adapters.codex_adapter import CoDExAdapter
 from adapters.metaqa_adapter import MetaQAAdapter
-from eval_harness import compute_metrics
+from eval_harness import compute_metrics, run_pipeline_verification
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("evaluate_concurrent")
@@ -21,20 +21,7 @@ def process_single_item(item, pipeline, dataset_name):
     gold = item["gold_label"]
     triples = item.get("triples", [])
     
-    if dataset_name == "factkg":
-        pipeline.store.courses = {}
-        for s, r, o in triples:
-            s_str, r_str, o_str = str(s).strip(), str(r).strip(), str(o).strip()
-            if s_str not in pipeline.store.courses:
-                pipeline.store.courses[s_str] = {
-                    "course_id": s_str, "title": s_str, "credits": 12, "school": "Science",
-                    "coordinator": "Unknown", "coordinator_email": "Unknown", "prerequisites": [], "description": ""
-                }
-            pipeline.store.courses[s_str][r_str] = o_str
-        pipeline.build_entity_index()
-        
-    res = pipeline.verify_statement(claim)
-    pred = res["overall_verdict"]
+    pred = run_pipeline_verification(claim, triples, pipeline, dataset_name)
     
     if dataset_name == "factkg":
         if pred in ["Not-in-KG", "Out-of-scope", "Abstained"]:
