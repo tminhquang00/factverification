@@ -154,7 +154,9 @@ def main():
     logger.info(f"Relations: {relations}")
     
     # Split entities into 70% active, 30% held-out
-    unique_entities = list(unique_entities)
+    # sorted(), not list(): see the note in scripts/convert_codex.py — set order varies per
+    # process, so the seeded shuffle did not reproduce the split.
+    unique_entities = sorted(unique_entities)
     random.seed(42)
     random.shuffle(unique_entities)
     split_idx = int(len(unique_entities) * 0.70)
@@ -168,14 +170,12 @@ def main():
     for s, r, o in triples:
         if s in active_entities and o in active_entities:
             if s not in metaqa_graph:
+                # Identity only — see the same note in scripts/convert_codex.py. The course
+                # scaffolding this block used to inject fabricated relation occupancy and gave
+                # stage 4 constants to compare movie claims against.
                 metaqa_graph[s] = {
                     "course_id": s,
                     "title": s,
-                    "prerequisites": [],
-                    "credits": 12,
-                    "school": "Science",
-                    "coordinator": "Unknown",
-                    "coordinator_email": "Unknown"
                 }
             if r not in metaqa_graph[s]:
                 metaqa_graph[s][r] = []
@@ -197,7 +197,9 @@ def main():
             rel_objects[r].add(o)
             
     # Also collect all active entity labels of specific categories if possible, or general fallback
-    active_entities_list = list(active_entities)
+    # sorted(), not list(): random.choice over an unordered set made the Contradicted arm's
+    # mutated answers irreproducible. See the note in scripts/convert_codex.py.
+    active_entities_list = sorted(active_entities)
     
     for h in [1, 2, 3]:
         logger.info(f"Processing {h}-hop QA questions...")

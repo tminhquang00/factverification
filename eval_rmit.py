@@ -3,8 +3,14 @@ import os
 import json
 import logging
 import random
+import time
 from verification_pipeline import VerificationPipeline
-from eval_harness import compute_metrics, print_markdown_table
+from eval_harness import (
+    compute_metrics,
+    print_markdown_table,
+    run_closed_book_verification,
+    run_context_verification,
+)
 from llm_client import get_llm_client
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
@@ -23,6 +29,24 @@ def main():
                         help="Ablation: withhold claims whose subject could not be linked from the "
                              "verdict vote. Off by default — measured at +0.8 pts on CoDEx (inside "
                              "the noise floor) against -2.67 pts on RMIT.")
+    parser.add_argument("--method", type=str, default="pipeline",
+                        choices=["closed_book_llm", "context_llm", "pipeline"],
+                        help="Verification method. Baseline arms mirror eval_harness.py so the domain "
+                             "set is compared against the same baselines as the public benchmarks: "
+                             "'closed_book_llm' prompts the LLM with no graph, 'context_llm' supplies "
+                             "the row's gold triples (an oracle-retrieval upper bound, not retrieval).")
+    parser.add_argument("--verify_field", type=str, default="raw_claim",
+                        choices=["raw_claim", "text"],
+                        help="Which field is submitted for verification. 'raw_claim' is the template "
+                             "interpolated from the graph's own field names — accuracy on it is inflated "
+                             "by construction (the circularity gap). 'text' is the natural-language "
+                             "question. Run both on identical rows to measure the gap.")
+    parser.add_argument("--routing_mode", type=str, default=None,
+                        choices=["dynamic", "fixed_cwa", "fixed_owa"],
+                        help="World-assumption dispatch (E2 ablation arm). See eval_harness.py.")
+    parser.add_argument("--cwa_threshold", type=float, default=None,
+                        help="Occupancy at or above which a relation is treated as closed-world under "
+                             "--routing_mode dynamic. Swept 0.50-0.95 in the E2 ablation.")
     args = parser.parse_args()
 
     random.seed(args.seed)
@@ -31,13 +55,25 @@ def main():
         logger.error(f"Test set not found at {test_set_path}. Run generate_dataset.py first.")
         return 2
         
-    logger.info("Initializing Verification Pipeline...")
     llm_client = get_llm_client(provider=args.provider, model=args.model_name)
-    pipeline = VerificationPipeline(
-        llm_client=llm_client,
-        withhold_unresolved_claims=args.withhold_unresolved_claims,
-    )
-    
+
+    pipeline = None
+    if args.method == "pipeline":
+        logger.info("Initializing Verification Pipeline...")
+        pipeline_kwargs = dict(
+            llm_client=llm_client,
+            withhold_unresolved_claims=args.withhold_unresolved_claims,
+        )
+        if args.routing_mode is not None:
+            pipeline_kwargs["routing_mode"] = args.routing_mode
+        if args.cwa_threshold is not None:
+            pipeline_kwargs["cwa_threshold"] = args.cwa_threshold
+        pipeline = VerificationPipeline(**pipeline_kwargs)
+    else:
+        logger.info(f"Running baseline arm '{args.method}' — the verification pipeline is not used.")
+        if args.routing_mode is not None or args.cwa_threshold is not None:
+            logger.warning("--routing_mode/--cwa_threshold have no effect outside --method pipeline.")
+
     logger.info(f"Loading evaluation dataset: {test_set_path}")
     data = []
     with open(test_set_path, "r", encoding="utf-8") as f:
@@ -57,18 +93,35 @@ def main():
         gold = item["gold_label"]
         reasoning = item["reasoning_type"]
         raw_claim = item.get("raw_claim", text)
-        
-        res = pipeline.verify_statement(raw_claim)
-        pred = res["overall_verdict"]
-        
+        # The verified string is a switch, not a hard-coded field: raw_claim is interpolated from
+        # the graph's own field names, so accuracy on it is circular by construction.
+        verified_input = raw_claim if args.verify_field == "raw_claim" else text
+
+        row_started = time.perf_counter()
+        with llm_client.usage.scope() as row_usage:
+            if args.method == "closed_book_llm":
+                pred = run_closed_book_verification(verified_input, llm_client)
+                claims_detail = []
+            elif args.method == "context_llm":
+                pred = run_context_verification(verified_input, item.get("triples", []), llm_client)
+                claims_detail = []
+            else:
+                res = pipeline.verify_statement(verified_input)
+                pred = res["overall_verdict"]
+                claims_detail = res["claims"]
+        row_usage = dict(row_usage, wall_clock_s=time.perf_counter() - row_started)
+
         return idx, pred, gold, {
             "id": item["id"],
             "text": text,
             "raw_claim": raw_claim,
+            "verified_input": verified_input,
             "gold": gold,
             "pred": pred,
+            "raw_pred": pred,
             "reasoning_type": reasoning,
-            "claims_detail": res["claims"]
+            "usage": row_usage,
+            "claims_detail": claims_detail
         }
 
     from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -83,13 +136,16 @@ def main():
                 results_detail[i] = detail
             except Exception as e:
                 # A crash is not a prediction; leave the row unscored rather than defaulting it.
+                # This applies to the baseline arms too — they re-raise instead of returning a label.
                 logger.error(f"Error evaluating RMIT item {idx}: {e}")
                 predictions[idx] = None
                 gold_labels[idx] = data[idx]["gold_label"]
+                raw_claim_err = data[idx].get("raw_claim", data[idx]["text"])
                 results_detail[idx] = {
                     "id": data[idx]["id"],
                     "text": data[idx]["text"],
-                    "raw_claim": data[idx].get("raw_claim", data[idx]["text"]),
+                    "raw_claim": raw_claim_err,
+                    "verified_input": raw_claim_err if args.verify_field == "raw_claim" else data[idx]["text"],
                     "gold": data[idx]["gold_label"],
                     "pred": None,
                     "raw_pred": "Error",
@@ -100,12 +156,37 @@ def main():
 
     # Calculate metrics (unscored crash rows are excluded from the denominator)
     accuracy, class_metrics, ci_lower, ci_upper, n_scored = compute_metrics(predictions, gold_labels)
+    run_usage = llm_client.usage.snapshot()
+    run_usage["per_row"] = {
+        "n_rows": len(data),
+        "tokens_per_row": (run_usage["total_tokens"] / len(data)) if data else None,
+        "calls_per_row": (run_usage["n_calls"] / len(data)) if data else None,
+    }
     print("\n" + "="*60)
     print("RMIT HANDBOOK KNOWLEDGE GRAPH VERIFICATION REPORT")
     print("="*60)
+    print(f"Method: {args.method}   Verified field: {args.verify_field}"
+          + (f"   Routing: {args.routing_mode or 'pipeline default'}"
+             f" @ tau_cwa={args.cwa_threshold if args.cwa_threshold is not None else 'default'}"
+             if args.method == "pipeline" else ""))
+    if args.verify_field == "raw_claim":
+        print("NOTE: raw_claim is interpolated from the graph's own field names; accuracy on it is")
+        print("      inflated by construction. Report it only alongside --verify_field text.")
     print(f"Total Items: {len(data)}")
-    print(f"Scored: {n_scored}   Unscored (pipeline raised): {len(data) - n_scored}")
-    print(f"E2E System Accuracy (over scored rows): {accuracy:.2%} (95% CI: [{ci_lower:.2%}, {ci_upper:.2%}])\n")
+    print(f"Scored: {n_scored}   Unscored (call raised): {len(data) - n_scored}")
+    print(f"E2E System Accuracy (over scored rows): {accuracy:.2%} (95% CI: [{ci_lower:.2%}, {ci_upper:.2%}])")
+    _lat = run_usage["latency_s"]
+    print(f"Cost: {run_usage['n_calls']} LLM calls, {run_usage['total_tokens']} tokens "
+          f"({run_usage['per_row']['calls_per_row']:.2f} calls/row, "
+          f"{run_usage['per_row']['tokens_per_row']:.1f} tokens/row)"
+          + ("" if run_usage["tokens_complete"]
+             else f" — WARNING: {run_usage['n_calls_without_usage']} calls returned no usage block, "
+                  "token totals are a lower bound"))
+    if _lat["mean"] is not None:
+        print(f"Latency per call: mean {_lat['mean']:.2f}s, p50 {_lat['p50']:.2f}s, "
+              f"p95 {_lat['p95']:.2f}s, max {_lat['max']:.2f}s\n")
+    else:
+        print("")
     
     print("Metrics by Verdict Class:")
     headers = ["Class", "Precision", "Recall", "F1-Score", "Support"]
@@ -128,7 +209,7 @@ def main():
     for res in results_detail:
         if res["pred"] != res["gold"]:
             print(f"- Query: \"{res['text']}\"")
-            print(f"  Raw: \"{res['raw_claim']}\"")
+            print(f"  Verified ({args.verify_field}): \"{res.get('verified_input', res['raw_claim'])}\"")
             print(f"  Gold: {res['gold']} | Predicted: {res['pred']} | Reasoning: {res['reasoning_type']}")
             print("  Decomposed Claims:")
             for cl in res["claims_detail"]:
@@ -146,7 +227,10 @@ def main():
         os.makedirs(output_dir, exist_ok=True)
     report = {
         "dataset": "rmit",
-        "method": "pipeline",
+        "method": args.method,
+        "verify_field": args.verify_field,
+        "routing_mode": args.routing_mode,
+        "cwa_threshold": args.cwa_threshold,
         "model_name": llm_client.model,
         "provider": llm_client.provider,
         "seed": args.seed,
@@ -157,6 +241,7 @@ def main():
         "accuracy": accuracy,
         "ci_95": [ci_lower, ci_upper],
         "class_metrics": class_metrics,
+        "usage": run_usage,
         "results_detail": results_detail,
     }
     with open(report_json_path, "w", encoding="utf-8") as f:

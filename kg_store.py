@@ -59,17 +59,26 @@ class KGStore:
 
     def get_prerequisites(self, course_id: str) -> list:
         """Retrieves list of prerequisite course codes for a course.
-        
+
+        Entries may be either `{"course_id": ...}` records or bare code strings. Graphs compiled
+        from different catalogs use both shapes, and indexing a string raised TypeError, taking
+        the whole row unscored rather than yielding a verdict.
+
         Args:
             course_id (str): The unique course code.
-            
+
         Returns:
             list: List of prerequisite course codes, or an empty list if none are specified.
         """
         course = self.get_course(course_id)
-        if course:
-            return [p["course_id"] for p in course.get("prerequisites", [])]
-        return []
+        if not course:
+            return []
+        prerequisites = []
+        for entry in course.get("prerequisites", []) or []:
+            code = entry.get("course_id") if isinstance(entry, dict) else entry
+            if code:
+                prerequisites.append(str(code))
+        return prerequisites
 
     def has_prerequisite(self, course_id: str, prereq_id: str) -> bool:
         """Determines if a specific course is a prerequisite for another course.
@@ -85,46 +94,61 @@ class KGStore:
 
     def get_credits(self, course_id: str) -> int:
         """Retrieves credit value for a course.
-        
+
+        Absence is reported as absence. This accessor used to default to 12 when the field was
+        missing, which fabricated a comparable value out of nothing: a claim of "12 credit points"
+        against an entity with no credit data was reported Supported. Returning None hands the
+        decision to the world-assumption dispatch, which is what decides whether missing data
+        means false (CWA) or unknown (OWA).
+
         Args:
             course_id (str): The unique course code.
-            
+
         Returns:
-            int: The credit points (defaults to 12 if unspecified but course exists), else None.
+            int: The credit points, or None if the course or the field is absent.
         """
         course = self.get_course(course_id)
         if course:
-            return course.get("credits", 12)
+            return course.get("credits")
         return None
 
     def get_school(self, course_id: str) -> str:
         """Retrieves School name offering the course.
-        
+
+        Returns None rather than 'Unknown' when the field is absent — see get_credits.
+
         Args:
             course_id (str): The unique course code.
-            
+
         Returns:
-            str: School name (e.g. 'Science'), defaults to 'Unknown' if course exists, else None.
+            str: School name (e.g. 'Science'), or None if the course or the field is absent.
         """
         course = self.get_course(course_id)
         if course:
-            return course.get("school", "Unknown")
+            school = course.get("school")
+            return None if school in ("", "Unknown") else school
         return None
 
     def get_coordinator(self, course_id: str) -> dict:
         """Retrieves coordinator name and contact email for a course.
-        
+
+        'Unknown' placeholders are normalized to None so callers cannot compare against them —
+        see get_credits.
+
         Args:
             course_id (str): The unique course code.
-            
+
         Returns:
-            dict: A dictionary containing 'name' and 'email' keys.
+            dict: A dictionary containing 'name' and 'email' keys, either of which may be None.
         """
         course = self.get_course(course_id)
         if course:
+            def _present(value):
+                return None if value in (None, "", "Unknown") else value
+
             return {
-                "name": course.get("coordinator", "Unknown"),
-                "email": course.get("coordinator_email", "Unknown")
+                "name": _present(course.get("coordinator")),
+                "email": _present(course.get("coordinator_email")),
             }
         return None
 

@@ -407,6 +407,14 @@ repaired, one measured and left disabled. Full analysis:
 Headline effect, sampling held constant on the identical 500 CoDEx rows:
 **41.80% → 81.80%** (`azure-4.1-mini`) and **37.20% → 75.80%** (`gemma-4-e4b`).
 
+> [!NOTE]
+> These are the D1–D5 numbers only. A second, evaluation-substrate repair the same day (fabricated
+> course scaffolding on every graph entity, registry: `public_graph_course_scaffolding_contamination`)
+> moved CoDEx to **83.00%/77.40%** on a rebuilt graph — a further construct-validity fix, not a further
+> accuracy gain (paired FactKG deltas from that repair are within 1.2 points). Current numbers:
+> [`../benchmarks/rerun_20260726_cleangraph_paper.md`](../benchmarks/rerun_20260726_cleangraph_paper.md);
+> synthesized: [`../journal_20260726.md`](../journal_20260726.md).
+
 **The grounding gate is the governing acceptance test.** Destroying the graph's factual content
 while preserving its structure previously changed only 1.8–2.8% of predictions — the pipeline's
 verdicts were largely recoverable without the graph. It now changes **28.9%**. Any future change to

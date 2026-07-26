@@ -1,0 +1,24 @@
+{
+  "dataset": "nusmods",
+  "total_entities": 11647,
+  "relation_field_map": {
+    "hasCreditValue": "credits",
+    "partOfSchool": "school",
+    "requiresPrerequisite": "prerequisites",
+    "department": "department",
+    "preclusions": "preclusions",
+    "corequisites": "corequisites",
+    "semesters": "semesters",
+    "grading_basis": "grading_basis"
+  },
+  "relation_completeness": {
+    "hasCreditValue": 1.0,
+    "partOfSchool": 1.0,
+    "requiresPrerequisite": 0.3119,
+    "department": 1.0,
+    "preclusions": 0.3981,
+    "corequisites": 0.0168,
+    "semesters": 1.0,
+    "grading_basis": 0.7878
+  }
+}

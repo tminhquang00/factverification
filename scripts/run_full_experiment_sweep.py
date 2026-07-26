@@ -88,7 +88,7 @@ def main():
     subprocess.run([python_exe, "scripts/generate_tristate_benchmarks.py"], check=True)
     subprocess.run([python_exe, "scripts/run_revised_experiments.py"], check=True)
     subprocess.run([python_exe, "scripts/evaluate_binary_trap.py"], check=True)
-    subprocess.run([python_exe, "scripts/evaluate_baselines.py"], check=True)
+    # evaluate_baselines.py deleted 2026-07-26 (fabricated constants, registry e9_baseline_suite).
 
     # 2. Consolidate results
     sweep_summary = {}
@@ -107,11 +107,6 @@ def main():
     if os.path.exists("output/experiments/binary_trap_results.json"):
         with open("output/experiments/binary_trap_results.json", "r", encoding="utf-8") as f:
             sweep_summary["binary_trap"] = json.load(f)
-
-    # Load Baseline Suite
-    if os.path.exists("output/experiments/baseline_suite_results.json"):
-        with open("output/experiments/baseline_suite_results.json", "r", encoding="utf-8") as f:
-            sweep_summary["baseline_suite"] = json.load(f)
 
     # Apply Holm-Bonferroni correction to delta-AURC p-values family
     raw_p_values = [0.012, 0.038, 0.045, 0.082]

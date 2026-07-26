@@ -5,7 +5,18 @@ replicate pair run with the D4 ablation enabled)
 **Run date:** 2026-07-26
 **Engines:** `azure-4.1-mini` (Azure OpenAI), `google/gemma-4-e4b` (local, LM Studio)
 **Supersedes:** [`rerun_20260725_paper.md`](rerun_20260725_paper.md) (measurement-integrity study)
-**Status:** `candidate` — not promoted to `validated`. See [§8](#8-what-may-and-may-not-be-claimed).
+**Status:** **SUPERSEDED (2026-07-26)** by
+[`rerun_20260726_cleangraph_paper.md`](rerun_20260726_cleangraph_paper.md).
+
+> [!WARNING]
+> **The CoDEx and MetaQA numbers in this paper were measured against contaminated graphs.** Both
+> public-benchmark converters injected RMIT course scaffolding (`credits: 12`, `school: "Science"`,
+> `prerequisites: []`, `coordinator: "Unknown"`) into every entity record, and `KGStore.get_credits`
+> independently defaulted to `12`. The RMIT rows this paper evaluated no longer exist: that set was
+> unseeded and has since been redrawn under a seed. Re-measurement against clean graphs moved paired
+> accuracy by at most 1.2 points — the defect was a construct-validity problem rather than an
+> accuracy inflator — but the figures below should be cited only as the pre-repair baseline.
+> Registry: `public_graph_course_scaffolding_contamination`.
 
 ---
 

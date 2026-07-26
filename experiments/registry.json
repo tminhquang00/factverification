@@ -247,6 +247,77 @@
         "output/experiments/full_experiment_sweep_report.json"
       ],
       "reason": "The runner combined invalidated experiments and inserted hand-written p-values."
+    },
+    {
+      "id": "e9_baseline_suite",
+      "status": "invalidated_fabricated",
+      "entry_point": "scripts/evaluate_baselines.py (deleted 2026-07-26)",
+      "outputs": [
+        "output/experiments/baseline_suite_results.json (deleted 2026-07-26)",
+        "output/experiments/full_experiment_sweep_report.json#baseline_suite (contaminated, retained under legacy_master_sweep)"
+      ],
+      "reason": "The script did not evaluate any baseline. closed_book_llm_accuracy, context_llm_with_abstain_accuracy and nli_verbalized_triples_accuracy were hard-coded constants (0.52/0.72/0.74 for FactKG, 0.35/0.42/0.45 for CoDEx and MetaQA, 0.50/0.88/0.90 for catalog2) selected by dataset name, and the NLI arm named a model that exists nowhere in the codebase. Only majority_class_accuracy and stratified_random_accuracy were computed from data. Script and standalone artifact deleted; recoverable from git history. No report ever quoted these values. Real baselines must be measured through eval_harness.py --method {closed_book_llm,context_llm,pipeline}, which already implements the first two, and must emit row-level predictions."
+    },
+    {
+      "id": "public_graph_course_scaffolding_contamination",
+      "status": "defect_open",
+      "entry_point": "scripts/diagnose_routing_occupancy.py",
+      "outputs": [
+        "output/diagnostics/routing_occupancy.json"
+      ],
+      "reason": "scripts/convert_codex.py:178-185 and scripts/convert_metaqa.py:175-178 inject RMIT course scaffolding into every public-benchmark entity record: course_id, title, prerequisites=[], credits=12, school='Science', coordinator='Unknown', coordinator_email='Unknown'. Verified constant across all 1182 CoDEx entities. Leonhard Euler is therefore recorded as a 12-credit course in the School of Science. Consequences: (1) estimate_relation_occupancy returns a fabricated 1.0 for hasCreditValue, partOfSchool and requiresPrerequisite on CoDEx and MetaQA, contaminating any dynamic-routing arm measured on those graphs; (2) a claim the mapper routes to a course-shaped relation is compared against a converter constant, a spurious agreement channel; (3) these four fields are invariant under the value-shuffling destruction control, so they cannot register a prediction change and dilute the measured grounding rate. Fixing the converters changes both graphs and therefore invalidates the current CoDEx/MetaQA results, which is why this is filed as an open defect rather than silently repaired."
+    },
+    {
+      "id": "rmit_text_field_is_a_question_not_a_response",
+      "status": "defect_open",
+      "entry_point": "eval_rmit.py --verify_field text",
+      "outputs": [],
+      "reason_note": "Retained after the 2026-07-26 regeneration: the rebuilt RMIT set is still 300/300 questions in `text`, because the generator's paraphrase prompt asks for 'a natural-sounding query, question, or statement'.",
+      "reason": "The standing de-circularization recommendation carried in rerun_20260726_paper.md:450, rerun_20260725_paper.md:617 and comprehensive_report_20260725.md:613 \u2014 'verify text rather than raw_claim' \u2014 is not implementable as written. All 300 rows of data/rmit_test_set.jsonl carry a question in `text` ('How many credit points is Course 038974 worth?') and the assertion in `raw_claim` ('Course 038974 is worth 12 credit points'), despite input_type='response'. The pipeline verifies claims, so submitting `text` yields Out-of-scope with zero decomposed claims: measured 3/3 rows under google/gemma-4-e4b via --verify_field text. De-circularization therefore requires authoring natural-language *responses* whose surface form does not derive from graph field names (E1/RMIT-NL); switching fields cannot substitute for it. The --verify_field flag is retained to make this measurable and to keep the claim honest. MEASURED AT FULL SCALE 2026-07-26 (nusmods_institutional_benchmark): all 300 rows under google/gemma-4-e4b, zero unscored. raw_claim 89.67% vs text 45.33%, paired McNemar p=6.2e-39. The 44.33-point drop is NOT a circularity estimate: 152/300 rows (50.67%) return Out-of-scope with zero decomposed claims -- the pipeline correctly refuses a question -- and are scored as errors only because no gold label exists for 'no claim present'. On the 148 rows where a claim was extractable, accuracy is 91.89%, slightly above the raw_claim arm. Artifacts: output/experiments/nusmods_20260726/ablation/rmit__gemma_4_e4b__{raw_claim,text}.json."
+    },
+    {
+      "id": "converter_seed_did_not_control_the_split",
+      "status": "fixed_and_verified",
+      "entry_point": "scripts/convert_codex.py, scripts/convert_metaqa.py",
+      "outputs": [],
+      "reason": "Both converters built their entity list with list(set(...)) and then called random.shuffle() under random.seed(42). Set iteration order over strings varies per process under Python's hash randomization, so the seed never controlled the 70/30 active/held-out split: two consecutive runs produced different graphs, different test sets, and different entity counts. convert_codex.py also picked the Contradicted arm's mutated object with random.choice() over an unordered set difference. Fixed by sorting before shuffling and before choosing. Verified: two consecutive runs of convert_codex.py now produce byte-identical data/codex_graph.json (sha256 b41be479f3601b61) and data/codex_test.jsonl (sha256 0a9198e01b4339c1). data/metaqa_test.jsonl remains irreproducible by construction because convert_metaqa.py verbalizes claims through an LLM; only its graph is deterministic."
+    },
+    {
+      "id": "rmit_dataset_generator_unseeded_and_accepted_empty_paraphrases",
+      "status": "fixed_and_verified",
+      "entry_point": "generate_dataset.py",
+      "outputs": [
+        "data/rmit_test_set.jsonl"
+      ],
+      "reason": "Two defects. (1) The generator called random.choices() a dozen times with no random.seed() anywhere, so every run drew a different 300 rows and no RMIT number could be tied to a reproducible sample; a --seed argument now controls row selection. (2) paraphrase_claim() fell back to the raw claim only on exception, so an empty completion was written into the dataset verbatim: a regeneration against google/gemma-4-e4b left 208 of 300 rows with an empty `text` field, and after adding empty-detection a further run still fell back to the template on 183 of 300 rows (61% empty-completion rate on that engine). The paraphrase now retries once and falls back explicitly. The shipped set was regenerated with provider=azure, model=azure-4.1-mini: 300 rows, 0 empty, 0 fallbacks, stratification preserved (one-hop 100 / conjunction 50 / existence 50 / multi-hop 50 / negation 50; Supported 125 / Contradicted 125 / Not-in-KG 50). Row selection is reproducible under the seed; the paraphrased surface form is not, since it is generated at temperature 0.7."
+    },
+    {
+      "id": "rerun_20260726_cleangraph",
+      "status": "candidate",
+      "entry_point": "scripts/run_benchmark_sweep.py --run_id rerun_20260726_cleangraph",
+      "outputs": [
+        "output/experiments/rerun_20260726_cleangraph/"
+      ],
+      "reason": "First sweep against the de-scaffolded public graphs, the absence-dispatched stage-4 accessors, and the regenerated RMIT set. Supersedes rerun_20260726_final, whose CoDEx and MetaQA numbers were measured against contaminated graphs and whose RMIT rows no longer exist. Not comparable row-for-row with any earlier run: the CoDEx graph moved from 1182 to 1189 entities, both public test sets were rebuilt, and the RMIT sample was redrawn under a seed for the first time. Engines: azure-4.1-mini and google/gemma-4-e4b. Occupancy gate after regeneration: CoDEx interior relations 18 -> 23 of 25, MetaQA 4 -> 3 of 6, RMIT unchanged at 0 of 7 (its saturation is genuine, not injected)."
+    },
+    {
+      "id": "nusmods_institutional_benchmark",
+      "status": "candidate",
+      "entry_point": "scripts/parse_nusmods.py -> scripts/build_nusmods_benchmark.py -> eval_harness.py --dataset nusmods",
+      "outputs": [
+        "data/nusmods_graph.json",
+        "data/nusmods_test.jsonl",
+        "output/experiments/nusmods_20260726/",
+        "output/experiments/nusmods_20260726/ablation/",
+        "output/experiments/nusmods_20260726/analysis_summary.json",
+        "output/experiments/nusmods_20260726/analysis/",
+        "output/diagnostics/nusmods_stage4_ceiling.json",
+        "output/diagnostics/nusmods_destruction_control.json",
+        "output/diagnostics/routing_occupancy_with_nusmods.json",
+        "docs/benchmarks/nusmods_study_20260726.md",
+        "docs/benchmarks/nusmods_benchmark.md"
+      ],
+      "reason": "Institutional-catalog tri-state benchmark over the NUS module catalog (11,647 modules, AY2020-21..AY2025-26, NUSMods v2 API), plus a full two-engine study with an ablation suite. Built to remove the circularity that invalidates eval_rmit.py: every gold label is world-assumption-independent, verified empirically -- forcing fixed_owa changes 0 of 500 predictions and fixed_cwa changes 1, and that 1 is a decomposition-unstable row that flips under an unrelated flag too. The benchmark is therefore deliberately blind to C1. Gates: graph-destruction 0.2907 mean prediction change (gate 0.20, PASS); stage-3/4 ceiling 1.0000 at entity_link_threshold 0.95 vs 0.7520 at 0.35 and 0.60, where the Not-in-KG class collapses to 0.248 recall. Results, n=500, identical rows, zero unscored rows in every cell: pipeline 99.80% (azure-4.1-mini) / 99.40% (gemma-4-e4b), context_llm 90.80% / 72.00%, closed_book_llm 41.00% / 33.80% against a 33.80% majority floor. Headline finding is the engine gap: 18.80 points on the context baseline (paired McNemar p=9.5e-24) vs 0.40 points inside the pipeline (p=0.625, n.s.). Advantage over the context baseline is concentrated in closed-world set reasoning (prerequisite-negation 100% vs 66%). Ablations: link threshold is the only consequential knob (-25.00 points at 0.35 and 0.60, both engines); routing, unresolved-claim withholding, and a same-seed replicate all move 0-1 rows. Run-to-run flip rate 0.10% (2 flips over 2,000 row-executions). Candidate, not validated: Supported items remain template-derived from the queried fields, the headline sits at the stage-4 ceiling so the benchmark discriminates poorly among competent systems, the ontology is three relations, and confidence is uncalibrated so no false-contradiction rate is controlled."
     }
   ]
 }

@@ -1,6 +1,10 @@
 import unittest
 
-from eval_harness import compute_metrics
+from eval_harness import (
+    compute_metrics,
+    run_closed_book_verification,
+    run_context_verification,
+)
 
 
 class CrashScoringTests(unittest.TestCase):
@@ -53,6 +57,50 @@ class CrashScoringTests(unittest.TestCase):
         self.assertEqual(n_scored, 0)
         self.assertEqual(accuracy, 0)
         self.assertEqual((lower, upper), (0.0, 0.0))
+
+
+class _RaisingClient:
+    def generate_json(self, *args, **kwargs):
+        raise RuntimeError("upstream 429")
+
+
+class _VerdictClient:
+    def __init__(self, payload):
+        self.payload = payload
+
+    def generate_json(self, *args, **kwargs):
+        return self.payload
+
+
+class BaselineErrorScoringTests(unittest.TestCase):
+    """Baseline arms must fail the same way the pipeline does.
+
+    Both baselines used to swallow exceptions and return `Not-in-KG`, so a failed call was scored
+    as a prediction while the pipeline path left the row unscored. Comparing the two under
+    different scoring rules biases every pipeline-vs-baseline result, which is exactly what the
+    E3 comparison rests on.
+    """
+
+    def test_closed_book_baseline_propagates_failures(self):
+        with self.assertRaises(RuntimeError):
+            run_closed_book_verification("Sam Cooke performed rhythm and blues.", _RaisingClient())
+
+    def test_context_baseline_propagates_failures(self):
+        with self.assertRaises(RuntimeError):
+            run_context_verification(
+                "Sam Cooke performed rhythm and blues.",
+                [["Sam Cooke", "genre", "rhythm and blues"]],
+                _RaisingClient(),
+            )
+
+    def test_successful_calls_still_map_verdicts(self):
+        client = _VerdictClient({"verdict": "Supported", "reason": "", "evidence": []})
+        self.assertEqual(run_closed_book_verification("claim", client), "Supported")
+        self.assertEqual(run_context_verification("claim", [], client), "Supported")
+
+    def test_refuted_is_normalized_to_contradicted(self):
+        client = _VerdictClient({"verdict": "REFUTED", "reason": "", "evidence": []})
+        self.assertEqual(run_context_verification("claim", [], client), "Contradicted")
 
 
 if __name__ == "__main__":

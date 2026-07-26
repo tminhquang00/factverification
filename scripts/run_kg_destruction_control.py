@@ -20,6 +20,10 @@ Usage
     & .venv\\Scripts\\python.exe scripts\\run_kg_destruction_control.py `
         --entity_link_threshold 0.95 `
         --out output\\diagnostics\\codex_destruction_control.json
+
+    & .venv\\Scripts\\python.exe -m scripts.run_kg_destruction_control `
+        --benchmark nusmods --entity_link_threshold 0.95 `
+        --out output\\diagnostics\\nusmods_destruction_control.json
 """
 
 import argparse
@@ -35,10 +39,46 @@ from pathlib import Path
 from scripts.diagnose_object_namespace import _NoLLM, evaluate, load_asserted_items
 from verification_pipeline import VerificationPipeline
 
-# Fields that carry graph scaffolding rather than open-domain facts.
-RESERVED = {
-    "course_id", "title", "prerequisites", "credits", "school",
-    "coordinator", "coordinator_email", "description",
+# Fields that carry graph scaffolding rather than facts, per benchmark. Everything NOT listed
+# here is destroyed by the control, so the set decides what the gate actually tests. CoDEx's
+# facts live in open-domain relation keys and `credits`/`school`/`prerequisites` are unused
+# scaffolding; on NUSMods those three fields ARE the facts under test, so they must be
+# destroyable or the control would shuffle nothing and pass vacuously.
+SCAFFOLDING = {
+    "codex": {
+        "course_id", "title", "prerequisites", "credits", "school",
+        "coordinator", "coordinator_email", "description",
+    },
+    "nusmods": {
+        "course_id", "title", "academic_year", "description",
+        "prerequisite_text", "preclusion_text",
+    },
+}
+RESERVED = SCAFFOLDING["codex"]
+
+
+def load_nusmods_items(path: Path, limit: int):
+    """Loads (gold, subject, relation, asserted_object) tuples from `asserted_triples`.
+
+    Multi-triple rows are flattened to their first triple so one row yields one prediction, which
+    keeps the change-rate denominator equal to the row count.
+    """
+    rows = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+    items, unparsed = [], 0
+    for row in rows[:limit]:
+        asserted = row.get("asserted_triples") or []
+        if not asserted:
+            unparsed += 1
+            continue
+        subject, relation, obj = asserted[0]
+        items.append((row["gold_label"], str(subject), str(relation), str(obj)))
+    return items, unparsed
+
+
+LOADERS = {"codex": load_asserted_items, "nusmods": load_nusmods_items}
+DEFAULT_PATHS = {
+    "codex": ("data/codex_test.jsonl", "data/codex_graph.json"),
+    "nusmods": ("data/nusmods_test.jsonl", "data/nusmods_graph.json"),
 }
 
 
@@ -47,14 +87,14 @@ def graph_hash(graph) -> str:
     return "sha256:" + hashlib.sha256(payload).hexdigest()
 
 
-def shuffle_within_relation(graph, seed):
+def shuffle_within_relation(graph, seed, reserved=RESERVED):
     """Permutes each relation's values across entities, preserving the value multiset."""
     out = copy.deepcopy(graph)
     rng = random.Random(seed)
     by_relation = collections.defaultdict(list)
     for key, record in out.items():
         for field in record:
-            if field not in RESERVED:
+            if field not in reserved:
                 by_relation[field].append(key)
     for field, keys in by_relation.items():
         values = [out[key][field] for key in keys]
@@ -64,11 +104,11 @@ def shuffle_within_relation(graph, seed):
     return out
 
 
-def strip_relations(graph):
+def strip_relations(graph, reserved=RESERVED):
     """Removes every open-domain relation, leaving the entity scaffolding intact."""
     out = copy.deepcopy(graph)
     for record in out.values():
-        for field in [f for f in record if f not in RESERVED]:
+        for field in [f for f in record if f not in reserved]:
             del record[field]
     return out
 
@@ -89,8 +129,10 @@ def run(graph, items, threshold):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--dataset", default="data/codex_test.jsonl")
-    parser.add_argument("--graph", default="data/codex_graph.json")
+    parser.add_argument("--benchmark", default="codex", choices=sorted(LOADERS),
+                        help="Selects the item loader and the scaffolding field set.")
+    parser.add_argument("--dataset", default=None, help="Defaults to the benchmark's test file.")
+    parser.add_argument("--graph", default=None, help="Defaults to the benchmark's graph.")
     parser.add_argument("--limit", type=int, default=500)
     parser.add_argument("--seeds", type=int, nargs="+", default=[11, 23, 37, 53, 71])
     parser.add_argument("--entity_link_threshold", type=float, default=0.95)
@@ -99,7 +141,12 @@ def main():
     parser.add_argument("--out", default=None)
     args = parser.parse_args()
 
-    items, unparsed = load_asserted_items(Path(args.dataset), args.limit)
+    default_dataset, default_graph = DEFAULT_PATHS[args.benchmark]
+    args.dataset = args.dataset or default_dataset
+    args.graph = args.graph or default_graph
+    reserved = SCAFFOLDING[args.benchmark]
+
+    items, unparsed = LOADERS[args.benchmark](Path(args.dataset), args.limit)
     base_graph = json.loads(Path(args.graph).read_text(encoding="utf-8"))
     print(f"Graph-destruction control on {args.dataset}: n={len(items)} ({unparsed} unparsed), "
           f"entity_link_threshold={args.entity_link_threshold}\n")
@@ -114,7 +161,7 @@ def main():
 
     change_rates = []
     for seed in args.seeds:
-        graph = shuffle_within_relation(base_graph, seed)
+        graph = shuffle_within_relation(base_graph, seed, reserved)
         acc, preds = run(graph, items, args.entity_link_threshold)
         change = sum(1 for a, b in zip(baseline_preds, preds) if a != b) / len(items)
         change_rates.append(change)
@@ -126,7 +173,7 @@ def main():
         print(f"  {'shuffled seed=' + str(seed):22} acc={acc:.4f}  "
               f"drop={baseline_acc - acc:+.4f}  predictions changed={change:.4f}")
 
-    stripped = strip_relations(base_graph)
+    stripped = strip_relations(base_graph, reserved)
     acc, preds = run(stripped, items, args.entity_link_threshold)
     change = sum(1 for a, b in zip(baseline_preds, preds) if a != b) / len(items)
     conditions.append({
@@ -149,6 +196,7 @@ def main():
         out = Path(args.out)
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(json.dumps({
+            "benchmark": args.benchmark,
             "dataset": args.dataset,
             "graph": args.graph,
             "n_items": len(items),

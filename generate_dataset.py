@@ -16,21 +16,43 @@ def paraphrase_claim(raw_claim: str, llm_client) -> str:
         "Do not change the core facts, names, or codes. Respond with the paraphrased sentence ONLY."
     )
     prompt = f"Factual Statement: \"{raw_claim}\"\n\nParaphrased:"
-    try:
-        paraphrased = llm_client.generate(prompt, system_prompt=system_prompt, temperature=0.7, max_tokens=100)
-        return paraphrased.strip().strip('"')
-    except Exception as e:
-        logger.error(f"Failed to paraphrase claim: {e}")
-        return raw_claim
+    # An empty completion is a failure, not a paraphrase. This used to return "" whenever the model
+    # produced nothing, and the caller wrote it straight into the dataset: a regeneration against
+    # google/gemma-4-e4b left 208 of 300 rows with an empty `text` field. Retry once, then fall
+    # back to the raw claim so a row always carries a usable surface form.
+    for attempt in (1, 2):
+        try:
+            paraphrased = llm_client.generate(
+                prompt, system_prompt=system_prompt, temperature=0.7, max_tokens=100
+            )
+        except Exception as e:
+            logger.error(f"Failed to paraphrase claim (attempt {attempt}): {e}")
+            continue
+        cleaned = (paraphrased or "").strip().strip('"').strip()
+        if cleaned:
+            return cleaned
+        logger.warning(f"Empty paraphrase on attempt {attempt} for: {raw_claim[:60]}")
+    logger.error(f"Paraphrase unavailable, falling back to the raw claim for: {raw_claim[:60]}")
+    return raw_claim
 
 import argparse
 
 from concurrent.futures import ThreadPoolExecutor
 
-def generate_rmit_dataset(kg_path="data/rmit_graph.json", output_path="data/rmit_test_set.jsonl", num_samples_per_type=50):
+def generate_rmit_dataset(kg_path="data/rmit_graph.json", output_path="data/rmit_test_set.jsonl", num_samples_per_type=50, seed=42, provider=None, model=None):
+    # The generator previously called random.choices() a dozen times with no seed anywhere, so
+    # every run drew a different 300 rows and no published RMIT number could be tied to a
+    # reproducible sample. Note that `text` is still an LLM paraphrase at temperature 0.7, so the
+    # row *selection* is reproducible under this seed but the paraphrased surface form is not;
+    # the templated `raw_claim` and the gold triples are fully determined by the seed.
+    random.seed(seed)
     store = get_kg_store(kg_path)
-    llm_client = get_llm_client()
-    
+    # Explicit engine: the paraphrase quality decides whether `text` is a natural-language variant
+    # at all. google/gemma-4-e4b returned an empty completion for 61% of calls, so every one of
+    # those rows fell back to the template and `text` carried no independent surface form.
+    llm_client = get_llm_client(provider=provider, model=model)
+    logger.info(f"Paraphrasing with provider={llm_client.provider}, model={llm_client.model}")
+
     courses = list(store.courses.values())
     if not courses:
         logger.error("No courses found in KG Store. Cannot generate dataset.")
@@ -194,7 +216,15 @@ def generate_rmit_dataset(kg_path="data/rmit_graph.json", output_path="data/rmit
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="RMIT Evaluation Dataset Generator")
     parser.add_argument("--num-per-type", type=int, default=50, help="Number of samples per reasoning category (50 * 6 = 300 total)")
+    parser.add_argument("--seed", type=int, default=42, help="Seed controlling row selection (not the LLM paraphrase)")
+    parser.add_argument("--provider", choices=["azure", "local"], default=None, help="Paraphrase engine provider")
+    parser.add_argument("--model", default=None, help="Paraphrase engine model name")
     args = parser.parse_args()
-    
-    generate_rmit_dataset(num_samples_per_type=args.num_per_type)
+
+    generate_rmit_dataset(
+        num_samples_per_type=args.num_per_type,
+        seed=args.seed,
+        provider=args.provider,
+        model=args.model,
+    )
 

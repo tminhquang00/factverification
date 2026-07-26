@@ -3,6 +3,7 @@ import argparse
 import logging
 import json
 import random
+import time
 from adapters.factkg_adapter import FactKGAdapter
 from adapters.fever_adapter import FEVERAdapter
 from llm_client import get_llm_client
@@ -104,19 +105,18 @@ def run_closed_book_verification(claim: str, llm_client):
         "The 'verdict' key must be exactly one of: 'Supported', 'Contradicted', 'Not-in-KG'."
     )
     prompt = f"Verify the following claim:\nClaim: \"{claim}\"\n\nJSON Output:"
-    
-    try:
-        res = llm_client.generate_json(prompt, system_prompt=system_prompt)
-        verdict = res.get("verdict", "Not-in-KG").strip()
-        # Clean verdict matching
-        if "support" in verdict.lower():
-            return "Supported"
-        elif "contradict" in verdict.lower() or "refut" in verdict.lower():
-            return "Contradicted"
-        else:
-            return "Not-in-KG"
-    except Exception as e:
-        logger.error(f"Error calling LLM for verification: {e}")
+
+    # Exceptions propagate: a failed call is not a prediction. The caller leaves the row unscored,
+    # the same rule the pipeline path uses. Returning "Not-in-KG" here would score the baseline
+    # under the old pre-D5-fix convention and bias every pipeline-vs-baseline comparison.
+    res = llm_client.generate_json(prompt, system_prompt=system_prompt)
+    verdict = res.get("verdict", "Not-in-KG").strip()
+    # Clean verdict matching
+    if "support" in verdict.lower():
+        return "Supported"
+    elif "contradict" in verdict.lower() or "refut" in verdict.lower():
+        return "Contradicted"
+    else:
         return "Not-in-KG"
 
 def run_context_verification(claim: str, triples: list, llm_client):
@@ -131,21 +131,44 @@ def run_context_verification(claim: str, triples: list, llm_client):
     )
     context_str = "\n".join(f"({t[0]}, {t[1]}, {t[2]})" for t in triples) if triples else "No context triples available."
     prompt = f"Context Triples:\n{context_str}\n\nClaim to Verify: \"{claim}\"\n\nJSON Output:"
-    
-    try:
-        res = llm_client.generate_json(prompt, system_prompt=system_prompt)
-        verdict = res.get("verdict", "Not-in-KG").strip()
-        if "support" in verdict.lower():
-            return "Supported"
-        elif "contradict" in verdict.lower() or "refut" in verdict.lower():
-            return "Contradicted"
-        else:
-            return "Not-in-KG"
-    except Exception as e:
-        logger.error(f"Error calling LLM: {e}")
+
+    # Exceptions propagate — see run_closed_book_verification. Failures are unscored, not labelled.
+    res = llm_client.generate_json(prompt, system_prompt=system_prompt)
+    verdict = res.get("verdict", "Not-in-KG").strip()
+    if "support" in verdict.lower():
+        return "Supported"
+    elif "contradict" in verdict.lower() or "refut" in verdict.lower():
+        return "Contradicted"
+    else:
         return "Not-in-KG"
 
+NUSMODS_DECOMPOSITION_PROMPT = (
+    "You are a factual claim extraction assistant working on the NUS module catalogue. "
+    "Decompose the text into atomic, schema-guided claims. "
+    "Each claim must map to one of these valid relation classes:\n"
+    "- hasCreditValue: the module is worth a number of Modular Credits (MCs).\n"
+    "- partOfSchool: the module is offered by a NUS faculty or school "
+    "(e.g. Computing, Science, Law, NUS Business School). Give the faculty name alone as the "
+    "object, without a 'Faculty of' prefix.\n"
+    "- requiresPrerequisite: the module requires another module as a prerequisite. If the text "
+    "says the module has no prerequisites, emit this relation with the object 'none'.\n\n"
+    "Use the module code (e.g. CS2040, LL4367V) as the subject whenever the text gives one. "
+    "A parenthesised module title is not a claim; do not emit one for it.\n"
+    "If the text says the prerequisite of module A itself requires module C, decompose it into "
+    "two claims: A requires B, and B requires C, using the intermediate module B if the text "
+    "names it; otherwise emit the single claim that A requires C.\n\n"
+    "Return a JSON object with a single key 'claims' containing a list of claims. "
+    "Each claim must have: 'subject', 'relation', 'object', 'claim_type'. "
+    "Set 'claim_type' to the relation name if it fits. If the claim does not fit any of the "
+    "relations, set 'claim_type' to 'unclassified'."
+)
+
+
 def run_pipeline_verification(claim: str, triples: list, pipeline, dataset: str):
+    if dataset == "nusmods":
+        res = pipeline.verify_statement(claim, custom_system_prompt=NUSMODS_DECOMPOSITION_PROMPT)
+        return res["overall_verdict"]
+
     if dataset in ["codex", "metaqa"]:
         if dataset == "codex":
             codex_prompt = (
@@ -191,7 +214,7 @@ def run_pipeline_verification(claim: str, triples: list, pipeline, dataset: str)
 
 def main():
     parser = argparse.ArgumentParser(description="Public Fact Verification Baseline Evaluation Harness")
-    parser.add_argument("--dataset", type=str, default="factkg", choices=["factkg", "fever", "codex", "metaqa"], help="Dataset to run on")
+    parser.add_argument("--dataset", type=str, default="factkg", choices=["factkg", "fever", "codex", "metaqa", "nusmods"], help="Dataset to run on")
     parser.add_argument("--method", type=str, default="pipeline", choices=["closed_book_llm", "context_llm", "pipeline"], help="Verification method")
     parser.add_argument("--limit", type=int, default=10, help="Limit number of items to evaluate")
     parser.add_argument("--model_name", type=str, default=None, help="LLM model name (e.g. azure-4.1-mini, azure-5-mini, google/gemma-4-e4b)")
@@ -212,6 +235,16 @@ def main():
     parser.add_argument("--entity_link_threshold", type=float, default=None,
                         help="Minimum bi-encoder cosine score to accept an entity link. Below it, the subject "
                              "is treated as unresolved (routing to Not-in-KG) rather than linked to a wrong entity.")
+    parser.add_argument("--routing_mode", type=str, default=None,
+                        choices=["dynamic", "fixed_cwa", "fixed_owa"],
+                        help="World-assumption dispatch (E2 ablation arm). 'dynamic' routes per relation on "
+                             "estimated occupancy against --cwa_threshold; 'fixed_cwa'/'fixed_owa' pin every "
+                             "relation to one assumption. Default: the pipeline's own default (dynamic).")
+    parser.add_argument("--cwa_threshold", type=float, default=None,
+                        help="Occupancy at or above which a relation is treated as closed-world under "
+                             "--routing_mode dynamic. Swept 0.50-0.95 in the E2 ablation. Ignored by the "
+                             "fixed arms. Note: dynamic routing is only distinguishable from fixed_cwa when "
+                             "estimated occupancy actually varies across relations.")
     args = parser.parse_args()
 
     # Reject structured methods on FEVER
@@ -231,6 +264,9 @@ def main():
     elif args.dataset == "metaqa":
         from adapters.metaqa_adapter import MetaQAAdapter
         adapter = MetaQAAdapter()
+    elif args.dataset == "nusmods":
+        from adapters.nusmods_adapter import NusmodsAdapter
+        adapter = NusmodsAdapter()
     else:
         adapter = FEVERAdapter()
         
@@ -255,6 +291,10 @@ def main():
     )
     if args.entity_link_threshold is not None:
         pipeline_kwargs["entity_link_threshold"] = args.entity_link_threshold
+    if args.routing_mode is not None:
+        pipeline_kwargs["routing_mode"] = args.routing_mode
+    if args.cwa_threshold is not None:
+        pipeline_kwargs["cwa_threshold"] = args.cwa_threshold
 
     pipeline = None
     if args.method == "pipeline":
@@ -262,6 +302,8 @@ def main():
             pipeline = VerificationPipeline(kg_path="data/codex_graph.json", **pipeline_kwargs)
         elif args.dataset == "metaqa":
             pipeline = VerificationPipeline(kg_path="data/metaqa_graph.json", **pipeline_kwargs)
+        elif args.dataset == "nusmods":
+            pipeline = VerificationPipeline(kg_path="data/nusmods_graph.json", **pipeline_kwargs)
         else:
             pipeline = VerificationPipeline(**pipeline_kwargs)
 
@@ -276,24 +318,26 @@ def main():
         claim = item["text"]
         gold = item["gold_label"]
         triples = item.get("triples", [])
-        
-        if args.method == "closed_book_llm":
-            pred = run_closed_book_verification(claim, llm_client)
-            raw_pred = pred
-        elif args.method == "pipeline":
-            pred = run_pipeline_verification(claim, triples, pipeline, args.dataset)
-            raw_pred = pred
-        else:
-            pred = run_context_verification(claim, triples, llm_client)
-            raw_pred = pred
-            
+
+        row_started = time.perf_counter()
+        with llm_client.usage.scope() as row_usage:
+            if args.method == "closed_book_llm":
+                pred = run_closed_book_verification(claim, llm_client)
+            elif args.method == "pipeline":
+                pred = run_pipeline_verification(claim, triples, pipeline, args.dataset)
+            else:
+                pred = run_context_verification(claim, triples, llm_client)
+        row_usage = dict(row_usage, wall_clock_s=time.perf_counter() - row_started)
+        raw_pred = pred
+
+
         # Normalize prediction label space based on the dataset
         if args.dataset == "factkg":
             if pred in ["Not-in-KG", "Out-of-scope", "Abstained"]:
                 pred = "Contradicted"
             elif pred != "Supported":
                 pred = "Contradicted"
-        elif args.dataset in ["codex", "metaqa"]:
+        elif args.dataset in ["codex", "metaqa", "nusmods"]:
             if pred == "Out-of-scope":
                 pred = "Not-in-KG"
                 
@@ -303,7 +347,8 @@ def main():
             "gold": gold,
             "pred": pred,
             "raw_pred": raw_pred,
-            "reasoning_type": item.get("reasoning_type", "N/A")
+            "reasoning_type": item.get("reasoning_type", "N/A"),
+            "usage": row_usage
         }
 
     from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -337,14 +382,32 @@ def main():
     # Compute metrics (crashes are excluded from the denominator, not defaulted to a label)
     accuracy, class_metrics, ci_lower, ci_upper, n_scored = compute_metrics(predictions, gold_labels)
     n_errors = len(data) - n_scored
+    run_usage = llm_client.usage.snapshot()
+    run_usage["per_row"] = {
+        "n_rows": len(data),
+        "tokens_per_row": (run_usage["total_tokens"] / len(data)) if data else None,
+        "calls_per_row": (run_usage["n_calls"] / len(data)) if data else None,
+    }
 
     # Print results
     print("\n" + "="*60)
     print(f"EVALUATION REPORT: {args.dataset.upper()} - {args.method.upper()} (Model: {llm_client.model})")
     print("="*60)
     print(f"Total Items: {len(data)}")
-    print(f"Scored: {n_scored}   Unscored (pipeline raised): {n_errors}")
-    print(f"Accuracy (over scored rows): {accuracy:.2%} (95% CI: [{ci_lower:.2%}, {ci_upper:.2%}])\n")
+    print(f"Scored: {n_scored}   Unscored (call raised): {n_errors}")
+    print(f"Accuracy (over scored rows): {accuracy:.2%} (95% CI: [{ci_lower:.2%}, {ci_upper:.2%}])")
+    _lat = run_usage["latency_s"]
+    print(f"Cost: {run_usage['n_calls']} LLM calls, {run_usage['total_tokens']} tokens "
+          f"({run_usage['per_row']['calls_per_row']:.2f} calls/row, "
+          f"{run_usage['per_row']['tokens_per_row']:.1f} tokens/row)"
+          + ("" if run_usage["tokens_complete"]
+             else f" — WARNING: {run_usage['n_calls_without_usage']} calls returned no usage block, "
+                  "token totals are a lower bound"))
+    if _lat["mean"] is not None:
+        print(f"Latency per call: mean {_lat['mean']:.2f}s, p50 {_lat['p50']:.2f}s, "
+              f"p95 {_lat['p95']:.2f}s, max {_lat['max']:.2f}s\n")
+    else:
+        print("")
 
     coverage, selective_accuracy = 1.0, accuracy
     if args.method == "pipeline" and args.dataset == "factkg":
@@ -382,16 +445,19 @@ def main():
     headers = ["Class", "Precision", "Recall", "F1-Score", "Support"]
     print_markdown_table(headers, class_metrics)
     
-    # Reasoning type breakdown (if FactKG)
-    if args.dataset == "factkg":
+    # Reasoning type breakdown. NUSMods rows carry a reasoning type that identifies the item
+    # construction (credit-one-hop, absent-module-*, ...), so the same breakdown applies there.
+    if args.dataset in ["factkg", "nusmods"]:
         print("\nReasoning Type Breakdown:")
         reasoning_types = set(item["reasoning_type"] for item in results_detail)
         r_rows = []
         for r_type in sorted(reasoning_types):
-            r_items = [item for item in results_detail if item["reasoning_type"] == r_type]
-            r_preds = [item["pred"] for item in r_items]
-            r_golds = [item["gold"] for item in r_items]
-            r_correct = sum(1 for p, g in zip(r_preds, r_golds) if p == g)
+            # Unscored rows are excluded here for the same reason compute_metrics excludes them:
+            # a crashed row is not a wrong prediction, and counting it as one understates the
+            # per-type accuracy by a different amount in every type.
+            r_items = [item for item in results_detail
+                       if item["reasoning_type"] == r_type and item["pred"] is not None]
+            r_correct = sum(1 for item in r_items if item["pred"] == item["gold"])
             r_acc = r_correct / len(r_items) if r_items else 0
             r_rows.append([r_type, len(r_items), f"{r_acc:.2%}"])
         print_markdown_table(["Reasoning Type", "Count", "Accuracy"], r_rows)
@@ -426,11 +492,14 @@ def main():
             "sampling": args.sample,
             "sample_seed": args.sample_seed,
             "entity_link_threshold": args.entity_link_threshold,
+            "routing_mode": args.routing_mode,
+            "cwa_threshold": args.cwa_threshold,
             "accuracy": accuracy,
             "ci_95": [ci_lower, ci_upper],
             "coverage": coverage,
             "selective_accuracy": selective_accuracy,
             "tristate": tristate,
+            "usage": run_usage,
             "results_detail": results_detail
         }
         with open(args.output_file, "w", encoding="utf-8") as f:

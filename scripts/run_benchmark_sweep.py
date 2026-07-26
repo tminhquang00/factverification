@@ -57,12 +57,16 @@ def build_cells(args, outdir: Path):
             ],
         })
 
-        for dataset, limit in (("factkg", args.public_limit), ("codex", args.public_limit)):
+        for dataset, limit in (("factkg", args.public_limit), ("codex", args.public_limit),
+                               ("nusmods", args.public_limit)):
             for sampling in args.sampling:
                 extra = []
                 # CoDEx runs against the open-domain graph, where the entity-link threshold was
-                # calibrated on a held-out split (scripts/sweep_entity_threshold.py).
-                if dataset == "codex":
+                # calibrated on a held-out split (scripts/sweep_entity_threshold.py). NUSMods runs
+                # against an 11.6k-module catalog whose Not-in-KG rows name codes that do not
+                # exist; at the 0.35 default the bi-encoder snaps them onto a real module, so the
+                # threshold is selected by scripts/diagnose_nusmods_stage4.py.
+                if dataset in ("codex", "nusmods"):
                     extra = ["--entity_link_threshold", str(args.entity_link_threshold)]
                 cells.append({
                     "name": f"{dataset}__{tag}__{sampling}",

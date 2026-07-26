@@ -143,7 +143,11 @@ def main():
     logger.info(f"Total triples loaded: {len(all_triples)}")
     
     # Identify unique entities
-    unique_entities = list(set([t[0] for t in all_triples] + [t[2] for t in all_triples]))
+    # sorted(), not list(): set iteration order over strings varies per process under Python's
+    # hash randomization, so random.seed(42) below was shuffling a differently-ordered list on
+    # every run. The active/held-out split, the graph and the derived test set were therefore
+    # irreproducible despite the seed. Sorting first makes the seed actually control the split.
+    unique_entities = sorted(set([t[0] for t in all_triples] + [t[2] for t in all_triples]))
     logger.info(f"Unique entities in triples: {len(unique_entities)}")
     
     # 4. Split entities into 70% active and 30% held-out
@@ -175,14 +179,15 @@ def main():
         r_label = relations.get(r, {}).get("label", r)
         
         if s not in codex_graph:
+            # Identity only. This block used to inject course scaffolding into every Wikidata
+            # entity — prerequisites=[], credits=12, school="Science", coordinator="Unknown" —
+            # which recorded Leonhard Euler as a 12-credit course in the School of Science. That
+            # fabricated an occupancy of 1.0 for hasCreditValue, partOfSchool and
+            # requiresPrerequisite on this graph, contaminating world-assumption routing, and gave
+            # stage 4 constants to compare real claims against.
             codex_graph[s] = {
                 "course_id": s,
                 "title": s_label,
-                "prerequisites": [],
-                "credits": 12,
-                "school": "Science",
-                "coordinator": "Unknown",
-                "coordinator_email": "Unknown"
             }
         
         # In Wikidata, a relation can have multiple values
@@ -235,8 +240,10 @@ def main():
         o_label = entities.get(o, {}).get("label", o)
         r_label = relations.get(r, {}).get("label", r)
         
-        # Select mutated object from other values of this relation
-        candidates = list(rel_objects[r] - {o_label})
+        # Select mutated object from other values of this relation.
+        # sorted(), not list(): random.choice over an unordered set difference made the mutated
+        # object — and therefore the Contradicted arm of the test set — irreproducible.
+        candidates = sorted(rel_objects[r] - {o_label})
         if not candidates:
             # Fallback to any random entity label if no other values exist for this relation
             candidates = [entities.get(random.choice(unique_entities), {}).get("label", "Unknown")]

@@ -159,7 +159,11 @@ class VerificationPipeline:
             return ""
         text = str(text).lower().strip()
         # Strip common prefixes for schools, departments, and academic titles
-        text = re.sub(r"^(school of|department of|college of|school|department|college)\s+", "", text)
+        # "faculty of" joins the list for NUSMods, where the awarding unit occupies the
+        # partOfSchool slot and is written "Computing" in the graph but "Faculty of Computing"
+        # in prose. Without it a true claim compares "facultyofcomputing" against "computing"
+        # and is reported as a school mismatch.
+        text = re.sub(r"^(school of|department of|college of|faculty of|school|department|college|faculty)\s+", "", text)
         text = re.sub(r"^(dr\.|dr|associate professor|assoc\.\s*prof\.|prof\.|prof|professor)\s+", "", text)
         return re.sub(r"[^a-z0-9]", "", text)
 
@@ -447,6 +451,27 @@ class VerificationPipeline:
         relation_score = self.store.estimate_relation_occupancy(relation)
         return "closed" if relation_score >= self.cwa_threshold else "open"
 
+    def _absent_value_verdict(self, subject_code: str, relation: str, object_val, world_assumption: str) -> dict:
+        """Verdict for a relation the graph holds no value for, dispatched on the world assumption.
+
+        This is the certain-answers case: with no value in the graph the claim is unknown under OWA
+        and false under CWA. The alternative — comparing the claim against a placeholder the store
+        invented — cannot produce a sound verdict either way.
+        """
+        if world_assumption == "closed":
+            return {
+                "verdict": "Contradicted",
+                "reason": (f"No {relation} value is recorded for {subject_code}, and the relation is "
+                           f"treated as closed-world, so the claimed {object_val} is not satisfiable."),
+                "evidence": f"({subject_code}, {relation}, <absent>)"
+            }
+        return {
+            "verdict": "Not-in-KG",
+            "reason": (f"No {relation} value is recorded for {subject_code} and the relation is "
+                       f"treated as open-world, so the claimed {object_val} is undetermined."),
+            "evidence": f"({subject_code}, {relation}, <absent>)"
+        }
+
     def stage_4_verify_triple(self, subject_code: str, relation: str, object_val) -> dict:
         """Stage 4: Executes semantics-dispatched verification against the KG."""
         if relation == "unclassified":
@@ -463,9 +488,12 @@ class VerificationPipeline:
                 matched_course = None
                 
                 # Check all courses in KG for matching coordinator name and email
+                # Coordinator fields are RMIT-specific. Graphs that do not carry them (CoDEx,
+                # MetaQA, NUSMods) used to raise KeyError here, which left the row unscored
+                # instead of reporting that no coordinator matched.
                 for c_code, course in self.store.courses.items():
-                    c_name_norm = self.normalize_text(course["coordinator"])
-                    c_email_norm = self.normalize_text(course["coordinator_email"])
+                    c_name_norm = self.normalize_text(course.get("coordinator") or "")
+                    c_email_norm = self.normalize_text(course.get("coordinator_email") or "")
                     
                     # Ignore placeholder dots or empty names/emails
                     if len(c_name_norm) <= 2 or len(c_email_norm) <= 2:
@@ -564,6 +592,12 @@ class VerificationPipeline:
 
         elif relation == "hasCreditValue":
             actual_credits = self.store.get_credits(subject_code)
+            if actual_credits is None:
+                # No value to compare against. Under OWA absence is unknown, not false; under CWA
+                # the graph is authoritative and absence contradicts. Previously the store handed
+                # back a default of 12 here, so this branch never ran and any "12 credits" claim
+                # was Supported against an entity that had no credit data at all.
+                return self._absent_value_verdict(subject_code, relation, object_val, world_assumption)
             if actual_credits == object_val:
                 return {
                     "verdict": "Supported",
@@ -579,6 +613,8 @@ class VerificationPipeline:
 
         elif relation == "partOfSchool":
             actual_school = self.store.get_school(subject_code)
+            if actual_school is None:
+                return self._absent_value_verdict(subject_code, relation, object_val, world_assumption)
             if self.normalize_text(actual_school) == self.normalize_text(str(object_val)):
                 return {
                     "verdict": "Supported",
@@ -594,9 +630,13 @@ class VerificationPipeline:
 
         elif relation == "taughtBy":
             coord = self.store.get_coordinator(subject_code)
-            name_match = self.normalize_text(coord["name"]) == self.normalize_text(str(object_val))
-            email_match = self.normalize_text(coord["email"]) == self.normalize_text(str(object_val))
-            
+            if coord is None or (coord["name"] is None and coord["email"] is None):
+                return self._absent_value_verdict(subject_code, relation, object_val, world_assumption)
+            name_match = coord["name"] is not None and \
+                self.normalize_text(coord["name"]) == self.normalize_text(str(object_val))
+            email_match = coord["email"] is not None and \
+                self.normalize_text(coord["email"]) == self.normalize_text(str(object_val))
+
             if name_match or email_match:
                 return {
                     "verdict": "Supported",
@@ -702,14 +742,13 @@ class VerificationPipeline:
             relation_id = str(relation).strip()
             normalized_object = str(object_value).strip()
             if subject_id not in courses:
+                # Identity only. The course scaffolding this block used to inject made every
+                # transient context claim a 12-credit Science course with no coordinator, so a
+                # credit or school claim could be "verified" against a constant this builder
+                # invented rather than against the supplied triples.
                 courses[subject_id] = {
                     "course_id": subject_id,
                     "title": subject_id,
-                    "credits": 12,
-                    "school": "Science",
-                    "coordinator": "Unknown",
-                    "coordinator_email": "Unknown",
-                    "prerequisites": [],
                     "description": "",
                 }
             courses[subject_id][relation_id] = normalized_object

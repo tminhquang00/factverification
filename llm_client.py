@@ -1,6 +1,9 @@
 import os
 import json
 import logging
+import threading
+import time
+from contextlib import contextmanager
 from dotenv import load_dotenv
 from openai import OpenAI, AzureOpenAI
 
@@ -10,10 +13,122 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("llm_client")
 
+
+class UsageMeter:
+    """Thread-safe accumulator for per-call token counts and wall-clock latency.
+
+    Every measurement is recorded here rather than derived after the fact, because token cost and
+    latency cannot be reconstructed from a finished run. Calls are attributed across threads, so
+    totals are safe under the ThreadPoolExecutor the eval harnesses use.
+    """
+
+    def __init__(self):
+        self._lock = threading.Lock()
+        self._local = threading.local()
+        self.reset()
+
+    def reset(self):
+        with self._lock:
+            self.n_calls = 0
+            self.n_failed_calls = 0
+            self.prompt_tokens = 0
+            self.completion_tokens = 0
+            self.total_tokens = 0
+            self.n_calls_without_usage = 0
+            self.latencies_s = []
+
+    @contextmanager
+    def scope(self):
+        """Attributes the calls made by the calling thread to one row.
+
+        Each row is evaluated on a single worker thread, but ThreadPoolExecutor reuses threads
+        across rows, so the bucket is installed per scope rather than per thread. Yields a dict
+        that is populated on exit; global totals accumulate regardless.
+        """
+        bucket = {
+            "n_calls": 0,
+            "n_failed_calls": 0,
+            "prompt_tokens": 0,
+            "completion_tokens": 0,
+            "total_tokens": 0,
+            "n_calls_without_usage": 0,
+            "latency_s_sum": 0.0,
+        }
+        previous = getattr(self._local, "bucket", None)
+        self._local.bucket = bucket
+        try:
+            yield bucket
+        finally:
+            self._local.bucket = previous
+
+    def record(self, latency_s: float, usage=None, failed: bool = False):
+        prompt_t = getattr(usage, "prompt_tokens", None) if usage is not None else None
+        completion_t = getattr(usage, "completion_tokens", None) if usage is not None else None
+        total_t = getattr(usage, "total_tokens", None) if usage is not None else None
+        no_usage = prompt_t is None and completion_t is None and total_t is None
+        resolved_total = 0 if no_usage else (total_t or ((prompt_t or 0) + (completion_t or 0)))
+
+        bucket = getattr(self._local, "bucket", None)
+        if bucket is not None:
+            # Thread-local: no lock needed, only the owning thread touches this bucket.
+            bucket["n_calls"] += 1
+            bucket["n_failed_calls"] += 1 if failed else 0
+            bucket["latency_s_sum"] += latency_s
+            if no_usage:
+                bucket["n_calls_without_usage"] += 1
+            else:
+                bucket["prompt_tokens"] += prompt_t or 0
+                bucket["completion_tokens"] += completion_t or 0
+                bucket["total_tokens"] += resolved_total
+
+        with self._lock:
+            self.n_calls += 1
+            if failed:
+                self.n_failed_calls += 1
+            self.latencies_s.append(latency_s)
+            if no_usage:
+                # Some local servers omit the usage block entirely; count these so a token total
+                # is never quoted as complete when part of the run was unmetered.
+                self.n_calls_without_usage += 1
+                return
+            self.prompt_tokens += prompt_t or 0
+            self.completion_tokens += completion_t or 0
+            self.total_tokens += resolved_total
+
+    def snapshot(self) -> dict:
+        with self._lock:
+            latencies = sorted(self.latencies_s)
+            n = len(latencies)
+
+            def pct(p):
+                if not n:
+                    return None
+                idx = min(n - 1, max(0, int(round(p * (n - 1)))))
+                return latencies[idx]
+
+            return {
+                "n_calls": self.n_calls,
+                "n_failed_calls": self.n_failed_calls,
+                "prompt_tokens": self.prompt_tokens,
+                "completion_tokens": self.completion_tokens,
+                "total_tokens": self.total_tokens,
+                "n_calls_without_usage": self.n_calls_without_usage,
+                "tokens_complete": self.n_calls_without_usage == 0,
+                "latency_s": {
+                    "sum": sum(latencies) if n else 0.0,
+                    "mean": (sum(latencies) / n) if n else None,
+                    "p50": pct(0.50),
+                    "p95": pct(0.95),
+                    "max": latencies[-1] if n else None,
+                },
+            }
+
+
 class LLMClient:
     def __init__(self, provider: str = None, model: str = None, base_url: str = None):
         self.provider = (provider or os.getenv("LLM_PROVIDER", "azure")).lower()
-        
+        self.usage = UsageMeter()
+
         if self.provider == "azure":
             api_key = os.getenv("AZURE_OPENAI_API_KEY")
             api_version = os.getenv("AZURE_OPENAI_API_VERSION", "2025-03-01-preview")
@@ -61,18 +176,24 @@ class LLMClient:
             kwargs["response_format"] = {"type": "json_object"}
 
 
+        started = time.perf_counter()
         try:
             response = self.client.chat.completions.create(**kwargs)
+            self.usage.record(time.perf_counter() - started, getattr(response, "usage", None))
             return response.choices[0].message.content
         except Exception as e:
+            self.usage.record(time.perf_counter() - started, None, failed=True)
             # Fallback if response_format is not supported by local model
             if json_mode and "response_format" in kwargs:
                 logger.warning(f"Retrying generation without response_format due to error: {e}")
                 kwargs.pop("response_format", None)
+                retry_started = time.perf_counter()
                 try:
                     response = self.client.chat.completions.create(**kwargs)
+                    self.usage.record(time.perf_counter() - retry_started, getattr(response, "usage", None))
                     return response.choices[0].message.content
                 except Exception as e2:
+                    self.usage.record(time.perf_counter() - retry_started, None, failed=True)
                     logger.error(f"Error during fallback LLM generation: {e2}")
                     raise e2
             logger.error(f"Error during LLM generation: {e}")
