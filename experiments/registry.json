@@ -7,13 +7,15 @@
     "validated_engineering": "Deterministic implementation claim supported by tests or a controlled gate.",
     "candidate_automated": "Completed automated research evidence with explicit validity limits; not independently human validated.",
     "not_established": "The current study cannot support this claim.",
-    "superseded": "Historical artifact retained only for forensic comparison and not citable as current evidence."
+    "superseded": "Historical artifact retained only for forensic comparison and not citable as current evidence.",
+    "withdrawn": "A previously reported claim that was found to be circular or otherwise unsound and has been retracted. Retained here so the retraction is discoverable."
   },
   "artifact_policy": {
     "current_results": "Only entries in this registry and the comprehensive 2026-08-03 report are current evidence.",
     "row_level_requirement": "Every reported aggregate must be reproducible from saved row-level predictions.",
     "error_policy": "Execution errors remain unscored and visible; they are never replaced by a default prediction.",
-    "legacy_outputs": "Older output directories are superseded even when retained on disk."
+    "legacy_outputs": "Older output directories are superseded even when retained on disk.",
+    "superseded_gold": "Artifacts scored under the declaration-coupled gold (files named *_authoritative*) are retained on disk for forensic comparison but are not current evidence. Any table showing a flat 0.0 false-contradiction rate for a system named plain `declared`, or a 1.000 macro-F1, comes from those files and is withdrawn."
   },
   "entries": [
     {
@@ -48,28 +50,40 @@
         "output/experiments/incompleteness_final_20260803/full_test_suite_authoritative.log",
         "output/experiments/incompleteness_final_20260803/nusmods_destruction_control.json",
         "output/experiments/incompleteness_final_20260803/codex_destruction_control.json",
-        "output/experiments/incompleteness_final_20260803/rmit_set_destruction.summary.json"
+        "output/experiments/incompleteness_final_20260803/rmit_set_destruction.summary.json",
+        "tests/test_intervention_gold.py",
+        "tests/test_model_compatibility.py",
+        "tests/test_retrieval_recall.py",
+        "tests/test_model_panel_analysis.py"
       ],
-      "result": "101 tests pass; NUSMods 0.3476 and CoDEx 0.2953 shuffled prediction-change rates both pass the 0.20 gate; RMIT shuffle/empty accuracy drops are 0.424/0.515."
+      "result": "183 tests pass (101 previous, 36 covering declaration-independent gold including the set-relation depletion regression, 20 covering multi-vendor model parameter compatibility, 12 covering the retrieval baseline, and 13 covering the panel analysis including the abstention-quality metrics that expose an indiscriminate abstainer); NUSMods 0.3476 and CoDEx 0.2953 shuffled prediction-change rates both pass the 0.20 gate; RMIT shuffle/empty accuracy drops are 0.424/0.515; the rescore reports 5 residual gold anomalies across 61,164 scored rows, all from one multi-hop triple."
     },
     {
       "id": "final_nusmods_incompleteness_study",
       "status": "candidate_automated",
       "entry_points": [
         "scripts/run_incompleteness_pilot.py",
+        "scripts/intervention_gold.py",
         "scripts/rescore_incompleteness_sweep.py",
         "scripts/analyze_incompleteness_results.py",
         "scripts/analyze_stage_attribution.py",
         "scripts/calibrate_selective_risk.py"
       ],
       "outputs": [
-        "output/experiments/incompleteness_final_20260803/nusmods_rescore_authoritative.json",
-        "output/experiments/incompleteness_final_20260803/nusmods_rescore_authoritative_analysis.json",
-        "output/experiments/incompleteness_final_20260803/nusmods_stage_attribution_authoritative.json",
-        "output/experiments/incompleteness_final_20260803/nusmods_rescore_authoritative_calibration.json"
+        "output/experiments/incompleteness_final_20260803/nusmods_rescore_intervention_gold.json",
+        "output/experiments/incompleteness_final_20260803/nusmods_rescore_intervention_gold_analysis.json",
+        "output/experiments/incompleteness_final_20260803/nusmods_stage_attribution_intervention_gold.json",
+        "output/experiments/incompleteness_final_20260803/nusmods_rescore_intervention_gold_calibration.json"
       ],
-      "result": "Across all four generator/detector pairs, random-deletion binary FCR reaches 0.963-0.991 at 20% retention while declared FCR is 0 under mechanical labels. Oracle and extracted-atom Stage 4 accuracy are 1.0.",
-      "validity_limit": "Questions, declarations, and gold are graph/researcher derived; no human validation; one stochastic answer run per generator condition."
+      "result": "On contradiction rate against claims true in the reference world, random deletion at 20% retention: declared_stale and binary are identical in all four generator/detector pairings (Azure->Azure 0.664 [0.628, 0.701]; Azure->Gemma 0.705; Gemma->Azure 0.739; Gemma->Gemma 0.761), rising from 0.000 at full retention. Stale completeness metadata is therefore indistinguishable from no metadata at all. declared_oracle holds 0.000 by construction; at random 20% it scores 0.990 accuracy, 0.919 macro-F1, 1.000 Contradicted recall at 0.619 precision, and 0.317 decision coverage - its cost is coverage, not missed contradictions. Occupancy is non-monotonic: at threshold 0.50 harm rises to 0.205 at 50% retention then falls to 0.000 at 20% purely because the density crosses the threshold. Oracle and extracted-atom Stage 4 accuracy remain 1.0. Gold anomalies across 61,164 rows: 5, all from one multi-hop triple.",
+      "validity_limit": "Gold is independent of every system under test but is still derived from graph contents rather than human judgement; declared_oracle cannot lose on the safety metric by construction and is a ceiling; questions and declarations are researcher-derived; one stochastic answer run per generator condition.",
+      "systems": [
+        "declared_oracle (ceiling)",
+        "declared_stale",
+        "binary",
+        "occupancy_0.50/0.70/0.85/0.95"
+      ],
+      "withdrawn_claim": "The previous entry reported binary FCR 0.963-0.991 at 20% retention against declared FCR 0. Both figures were artifacts of a gold function coupled to the declaration file, plus a `binary` arm that was one line of post-processing on the `declared` output. 1105/1147 = 0.963 reproduced the reported value exactly, showing the curve restated the deletion rate. A second claim was also withdrawn during this revision: that declared_oracle over-abstains, recovering only 0.142 of detectable contradictions. That figure came from a set-relation bug in the replacement gold which read depleted member lists as authoritative; actual contradiction recall is 0.946-1.000."
     },
     {
       "id": "final_external_baselines",
@@ -77,16 +91,17 @@
       "entry_points": [
         "scripts/run_flat_context_incompleteness.py",
         "scripts/run_minicheck_incompleteness.py",
-        "scripts/evaluate_linker_nil.py"
+        "scripts/evaluate_linker_nil.py",
+        "scripts/rescore_external_baselines.py"
       ],
       "outputs": [
-        "output/experiments/incompleteness_final_20260803/nusmods_flat_azure.json",
-        "output/experiments/incompleteness_final_20260803/nusmods_flat_gemma.json",
-        "output/experiments/incompleteness_final_20260803/nusmods_minicheck.json",
+        "output/experiments/incompleteness_final_20260803/nusmods_flat_azure_intervention_gold.json",
+        "output/experiments/incompleteness_final_20260803/nusmods_flat_gemma_intervention_gold.json",
+        "output/experiments/incompleteness_final_20260803/nusmods_minicheck_intervention_gold.json",
         "output/experiments/incompleteness_final_20260803/linker_nil.json"
       ],
-      "result": "Azure/Gemma oracle-context tri-state accuracy changes from 0.920/0.873 at full retention to 0.643/0.367 at random 20%, versus binary-collapse accuracy 0.247/0.217. MiniCheck cannot express Not-in-KG; title-only NIL linking remains a major limitation.",
-      "validity_limit": "Flat context is selected from known expected triples and is not an end-to-end retriever."
+      "result": "These arms carry the most weight because the predictor has no connection to the gold definition. Contradiction rate on true claims, random 100% -> 20% retention: Azure tri-state 0.000 -> 0.254; Azure binary collapse 0.000 -> 0.685; Gemma tri-state 0.109 -> 0.670; Gemma binary collapse 0.138 -> 0.757; MiniCheck mapped 0.225 -> 0.808. Tri-state prompting with oracle evidence therefore reduces the harm 2.7x for Azure but only 1.13x for Gemma, and never eliminates it. Azure tri-state accuracy falls 0.920 -> 0.643 while its false-support rate rises 0.080 -> 0.333, so the failure is not mere over-caution. MiniCheck native binary accuracy rises 0.713 -> 0.833 as facts are deleted while its tri-state accuracy collapses to 0.170, evidence that label space rather than model quality is the binding constraint. Title-only NIL linking remains a major limitation at 0.572 total accuracy.",
+      "validity_limit": "Flat context is selected from known expected triples and is not an end-to-end retriever, so these numbers are an upper bound on retrieval-based deployment. Model predictions are unchanged from the original runs; only the gold column was recomputed (130 of 3,000 rows changed per file, with the previous label retained as gold_previous_declaration_coupled)."
     },
     {
       "id": "final_rmit_transfer",
@@ -118,16 +133,65 @@
       "validity_limit": "FactKG is forced binary and ordered by reasoning type; RMIT public claims remain synthetic; public intervals are row-level rather than entity-clustered. Four earlier Azure CoDEx/FactKG cells predate start-time hash capture; all local cells and affected Azure NUSMods/RMIT reruns contain code identity."
     },
     {
+      "id": "model_panel_tristate_verifier",
+      "status": "candidate_automated",
+      "entry_points": [
+        "scripts/run_model_panel.py",
+        "scripts/run_flat_context_incompleteness.py",
+        "scripts/analyze_model_panel.py"
+      ],
+      "outputs": [
+        "output/experiments/model_panel_20260803/panel_manifest.json",
+        "output/experiments/model_panel_20260803/panel_analysis.json",
+        "output/experiments/model_panel_20260803/flat_<model>.json"
+      ],
+      "scope": "15 models across OpenAI, Anthropic, Google and Meta, nano to frontier, on the oracle-context tri-state verifier arm. 18,000 classifications, of which 17,993 produced a prediction. Identical claims, evidence, prompt and declaration-independent gold; only the model varies.",
+      "result": "A third label is necessary but not sufficient. Binary-collapse contradiction rate on true claims is 0.681-0.739 across all 15 models - a 0.058 spread over a 10x capability range - so the binary failure is a property of the task rather than the model. Tri-state harm spans 0.051-0.540 (best gpt-5.4-nano 0.051 [0.008, 0.108]; median 0.243; 14 of 15 above 0.11), so no model reaches zero. The failure mode is uniformly under-abstention: abstention precision is 0.972-1.000 for every model while abstention recall spans 0.267-0.933. Capability is a weak predictor: Spearman(competence, harm) = -0.662, but within-tier spread (0.489 in the small tier) is about four times the between-tier spread (0.132), and the ordering is non-monotonic inside every vendor - gpt-5.4-nano, the smallest model in its family, beats frontier gpt-5.5 fourfold. Vendor means: OpenAI 0.217, Anthropic 0.273, Meta 0.326, Google 0.381.",
+      "validity_limit": "Evidence is oracle-selected, so these are upper bounds on retrieval-based deployment (see retrieval_recall_bound). Six of fifteen models - azure-o3, claude-opus-4-7, gpt-5.4, gpt-5.4-mini, gpt-5.4-nano, gpt-5.5 - reject temperature=0 and ran at a provider default; they span best to mid-pack and the worst model overall ran at temperature 0, so sampling does not explain the ordering, but cross-vendor comparison through a single gateway is a real limitation. One seed, random deletion mode only, retentions 100/80/50/20. Tier and vendor labels are editorial and recorded in the artifact. Seven rows (0.04%), all gemini-2.5-flash JSON truncations across 5 unique triples, produced no prediction; they are excluded from scoring and never defaulted, leaving that model's cells at n=295-300 rather than 300."
+    },
+    {
+      "id": "retrieval_recall_bound",
+      "status": "validated_engineering",
+      "entry_points": [
+        "scripts/evaluate_retrieval_recall.py"
+      ],
+      "outputs": [
+        "output/experiments/retrieval_recall_20260803/nusmods_retrieval_recall.json"
+      ],
+      "scope": "Okapi BM25 over all 11,647 NUSMods records with stopword removal and exact course-code promotion, plus an optional all-MiniLM-L6-v2 dense rerank. Deterministic, no model calls.",
+      "result": "The oracle-context arm assumes recall@1 = 1.0 with perfect relation selection. A real retriever achieves 0.880 at rank 1 on code-bearing queries (0.980 at rank 10) and 0.470 on title-only queries (0.855 at rank 10). Oracle context therefore overstates available evidence by about 12 points at rank 1 when an identifier is present and about 53 points when it is not. The dense rerank does not help (0.865 / 0.440 at rank 1), a negative result retained rather than dropped.",
+      "validity_limit": "Measures subject-record retrieval only; the oracle arm also assumes perfect relation selection within the record, which is not measured here. Title-only queries are a constructed rewrite, not naturally occurring user text."
+    },
+    {
       "id": "publication_claim",
       "status": "candidate_automated",
       "output": "docs/benchmarks/comprehensive_final_study_20260803.md",
-      "supported_claim": "Controlled deletion shows that binary missing-evidence handling creates a steep false-contradiction curve and that explicit relation completeness metadata implements consistent tri-state semantics.",
+      "supported_claim": "A controlled measurement study of how post-hoc factuality verification degrades under knowledge-graph incompleteness. (a) Across 15 models and four vendors, a tri-state label space is necessary but not sufficient: binary-collapse harm is 0.681-0.739 regardless of model while tri-state harm spans 0.051-0.540 and no model reaches zero. (b) The failure mode is uniformly under-abstention - abstention precision 0.972-1.000 for every model, all variation in recall. (c) Correct abstention does not track capability: within-tier spread is about four times the between-tier spread and the ordering is non-monotonic inside every vendor. (d) Stale completeness metadata is indistinguishable from no metadata on the safety metric. (e) Decomposition rather than symbolic lookup dominates the end-to-end error budget. Supporting negative results: occupancy inference is non-monotonic and threshold-fragile, binary checkers have a label-space defect, dense reranking does not beat tuned BM25 on short catalogue records, and oracle context overstates retrieval by 12-53 points at rank 1.",
       "not_established": [
-        "independently validated real-world factuality accuracy",
-        "realistic retrieval performance",
+        "independently validated real-world factuality accuracy (gold is mechanical, not human-annotated)",
+        "end-to-end retrieval-based verification performance (the panel uses oracle-selected evidence; retrieval recall is measured separately but the two were not composed)",
         "institution-authorized completeness declarations",
         "conformal or calibrated deployment safety",
-        "journal-level superiority over prior systems"
+        "journal-level superiority over prior systems",
+        "broad generalization beyond catalogue schemas and two public benchmarks",
+        "that the panel ordering is free of sampling effects (6 of 15 models ignored temperature=0)"
+      ],
+      "framing": "Measurement paper, not a systems paper. A systems framing would be judged on beating the FActScore/SAFE/VeriScore lineage, which this work does not attempt.",
+      "withdrawn_claim": "Explicit relation completeness metadata implements consistent tri-state semantics with a zero false-contradiction rate. Withdrawn: that result was entailed by a gold function that read the same declaration file as the system it scored.",
+      "venue_readiness": {
+        "masters_thesis": "ready",
+        "workshop_or_short_paper": "ready",
+        "full_conference": "reachable in roughly 6-8 weeks with human-validated gold and a real retriever",
+        "journal": "not supported"
+      },
+      "next_steps_ranked": [
+        "Human-validated gold on 300 stratified claims, two annotators, report Cohen kappa.",
+        "Compose the measured retriever with the verifier to get an end-to-end number, rather than reporting oracle-context and retrieval recall separately.",
+        "Repeat the panel at several temperatures to separate sampling from capability for the six models that ignore temperature=0.",
+        "Three or more answer-generation runs per generator/condition to cover LLM sampling variance.",
+        "Test whether fact-level or entity-level declarations recover the coverage that relation-level flags cost; this is an open question, not a demonstrated defect.",
+        "A naturally incomplete graph, e.g. a time-sliced NUSMods snapshot pair.",
+        "Scale the question set to roughly 1,000; do this last because it costs compute, not design."
       ]
     }
   ],
@@ -135,5 +199,19 @@
     "status": "not_performed_by_request",
     "consequence": "Research entries remain candidate_automated and cannot support an independent efficacy or journal-ready claim."
   },
-  "superseded_policy": "All registry-v1 studies, dated pilots, draft papers, and duplicate status documents are superseded and recoverable through Git history."
+  "superseded_policy": "All registry-v1 studies, dated pilots, draft papers, and duplicate status documents are superseded and recoverable through Git history.",
+  "gold_revision": "2026-08-03c",
+  "gold_definition": {
+    "module": "scripts/intervention_gold.py",
+    "inputs": [
+      "reference (undegraded) graph",
+      "condition (degraded) graph"
+    ],
+    "reads_completeness_declaration": false,
+    "why": "The previous gold read the same completeness declaration as the proposed `declared` routing mode, so the system was graded against its own rule and scored exactly 1.000 accuracy and 1.000 macro-F1 in all 336 cells with a zero-width bootstrap interval. Gold is now a function of graph contents only, and a declaration is purely a system input that can be fresh, stale or absent.",
+    "headline_metric": "contradiction_rate_on_true_claims",
+    "headline_metric_note": "Of claims true in the reference world, the fraction the system called Contradicted. Needs no convention about how absence should be labelled. false_contradiction_rate is retained only for comparability with prior work.",
+    "ceiling_arm_caveat": "declared_oracle receives a declaration regenerated for the exact damage applied, so it cannot emit a contradiction from absence. Its zero is definitional and is reported as a ceiling, never as a result.",
+    "set_relation_note": "Random deletion removes individual members of set-valued relations and leaves the container in place. Absence of a claimed member licenses a contradiction only when the visible member set is provably identical to the reference member set. An earlier revision omitted this and mislabelled 230 of 296 supposed contradictions in one cell."
+  }
 }

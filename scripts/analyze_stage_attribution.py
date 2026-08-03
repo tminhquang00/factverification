@@ -10,7 +10,7 @@ from pathlib import Path
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from kg_store import get_kg_store
-from scripts.run_incompleteness_pilot import mechanical_gold_for_graph
+from scripts.intervention_gold import intervention_gold
 from verification_pipeline import VerificationPipeline
 
 
@@ -73,7 +73,11 @@ def main():
     expected_rows = []
     for question in questions:
         for triple in question.get("expected_triples", []):
-            gold = mechanical_gold_for_graph(tuple(triple), graph, pipeline.store)
+            # The stage-attribution arms run against the undegraded snapshot, so the reference
+            # world and the condition graph are the same object. Gold still comes from the
+            # declaration-independent function so that every arm of the study shares one
+            # definition of correctness.
+            gold = intervention_gold(tuple(triple), graph, graph)["verdict"]
             verification_prediction = pipeline.stage_4_verify_triple(*triple)["verdict"]
             # Generated answers normally mention the course identifier together with
             # its title.  Title-only aliases are often non-unique (for example many
@@ -120,7 +124,7 @@ def main():
         for atom in atoms:
             key = (atom["question_id"], atom["generation_condition"])
             extracted[key].add(canonical(atom["triple"]))
-            atom_gold = mechanical_gold_for_graph(tuple(atom["triple"]), graph, pipeline.store)
+            atom_gold = intervention_gold(tuple(atom["triple"]), graph, graph)["verdict"]
             stage4_pairs.append((atom["predictions"]["declared"], atom_gold))
 
         condition_metrics = {}

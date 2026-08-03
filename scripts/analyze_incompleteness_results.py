@@ -18,6 +18,12 @@ STAT_NAMES = (
     "predicted_supported",
     "false_supports",
     "decisions",
+    # Convention-free safety counters. `true_world_claims` counts atoms whose claim is true in the
+    # reference (undegraded) graph; `contradicted_true_world` counts how many of those the system
+    # called Contradicted. Their ratio needs no assumption about how absence ought to be labelled,
+    # so it stays meaningful even to a reader who rejects our gold convention entirely.
+    "true_world_claims",
+    "contradicted_true_world",
 )
 
 
@@ -25,7 +31,7 @@ def safe_ratio(numerator, denominator):
     return numerator / denominator if denominator else None
 
 
-def summarize_pairs(predictions, golds):
+def summarize_pairs(predictions, golds, world_truths=None):
     n = len(predictions)
     correct = sum(prediction == gold for prediction, gold in zip(predictions, golds))
     pred_c = sum(prediction == "Contradicted" for prediction in predictions)
@@ -76,6 +82,27 @@ def summarize_pairs(predictions, golds):
         "n_false_supports": false_s,
         "decision_coverage": safe_ratio(decisions, n),
         "label_metrics": by_label,
+        **_true_world_metrics(predictions, world_truths),
+    }
+
+
+def _true_world_metrics(predictions, world_truths):
+    """Safety metrics restricted to claims that are true in the reference world.
+
+    Unlike false-contradiction rate, this does not depend on any convention about what an absent
+    fact ought to be labelled. It answers a question with only one defensible answer: how often did
+    the system announce a contradiction about something that is, in fact, true?
+    """
+    if world_truths is None:
+        return {}
+    true_world = [
+        prediction for prediction, world in zip(predictions, world_truths) if world == "true"
+    ]
+    contradicted = sum(prediction == "Contradicted" for prediction in true_world)
+    return {
+        "n_true_world_claims": len(true_world),
+        "n_contradicted_true_world_claims": contradicted,
+        "contradiction_rate_on_true_claims": safe_ratio(contradicted, len(true_world)),
     }
 
 
@@ -92,6 +119,9 @@ def cluster_statistics(rows, system):
         values[4] += prediction == "Supported"
         values[5] += prediction == "Supported" and gold != "Supported"
         values[6] += prediction != "Not-in-KG"
+        is_true_world = row.get("world_truth") == "true"
+        values[7] += is_true_world
+        values[8] += is_true_world and prediction == "Contradicted"
     return np.stack(list(clusters.values())) if clusters else np.zeros((0, len(STAT_NAMES)))
 
 
@@ -106,6 +136,7 @@ def ratios_from_totals(totals):
         "false_contradiction_rate": divide(totals[:, 3], totals[:, 2]),
         "false_support_rate": divide(totals[:, 5], totals[:, 4]),
         "decision_coverage": divide(totals[:, 6], totals[:, 0]),
+        "contradiction_rate_on_true_claims": divide(totals[:, 8], totals[:, 7]),
     }
 
 
@@ -142,7 +173,8 @@ def bootstrap_difference(rows, first, second, iterations, seed):
     observed_first = ratios_from_totals(first_stats.sum(axis=0, keepdims=True))
     observed_second = ratios_from_totals(second_stats.sum(axis=0, keepdims=True))
     output = {}
-    for metric in ("accuracy", "false_contradiction_rate", "false_support_rate"):
+    for metric in ("accuracy", "false_contradiction_rate", "false_support_rate",
+                   "contradiction_rate_on_true_claims"):
         observed = observed_first[metric][0] - observed_second[metric][0]
         differences = first_ratios[metric] - second_ratios[metric]
         output[metric] = {
@@ -168,7 +200,8 @@ def summarize_groups(rows, key_fields, iterations, seed):
         system = key[-1]
         predictions = [row["predictions"][system] for row in group_rows]
         golds = [row["gold"] for row in group_rows]
-        summary = summarize_pairs(predictions, golds)
+        world_truths = [row.get("world_truth") for row in group_rows]
+        summary = summarize_pairs(predictions, golds, world_truths)
         summary["clustered_bootstrap_ci95"] = bootstrap_intervals(
             group_rows, system, iterations, stable_seed(seed, key)
         )
@@ -184,8 +217,18 @@ def paired_comparisons(rows, key_fields, iterations, seed):
     for key, group_rows in sorted(groups.items(), key=lambda item: tuple(map(str, item[0]))):
         systems = sorted(group_rows[0]["predictions"])
         pairs = []
-        if "declared" in systems:
-            pairs.extend(("declared", system) for system in systems if system != "declared")
+        # Contrast every system against the perfectly-maintained-metadata upper bound, and also
+        # pair the realistic stale-metadata arm against the no-metadata arm. The latter is the
+        # comparison that carries real information: both systems can emit contradictions from
+        # absence, and neither of them defines the gold.
+        for reference in ("declared_oracle", "declared"):
+            if reference in systems:
+                pairs.extend(
+                    (reference, system) for system in systems if system != reference
+                )
+                break
+        if "declared_stale" in systems and "binary" in systems:
+            pairs.append(("declared_stale", "binary"))
         comparisons = {}
         for first, second in pairs:
             comparison_key = f"{first}_minus_{second}"
@@ -224,6 +267,22 @@ def main():
             "undefined_rate_policy": (
                 "Rates with zero predicted decisions are null, never reported as zero."
             ),
+            "gold_independence": payload.get("gold_definition", {}),
+            "metric_reading_guide": {
+                "false_contradiction_rate": (
+                    "Contradictions issued against a gold of Supported or Not-in-KG. Depends on the "
+                    "convention that absence never licenses a contradiction."
+                ),
+                "contradiction_rate_on_true_claims": (
+                    "Contradictions issued against claims that are true in the reference world. "
+                    "Convention-free; prefer this as the headline safety number."
+                ),
+                "declared_oracle_caveat": (
+                    "declared_oracle consumes a completeness declaration regenerated for the exact "
+                    "damage applied, so it cannot emit a contradiction from absence and its zero "
+                    "rates are definitional. Treat it as an upper bound, never as a result."
+                ),
+            },
         },
         "by_generation_condition": summarize_groups(
             rows, detailed_fields, args.iterations, args.seed

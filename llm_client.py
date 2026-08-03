@@ -1,6 +1,7 @@
 import os
 import json
 import logging
+import re
 import threading
 import time
 from contextlib import contextmanager
@@ -124,10 +125,74 @@ class UsageMeter:
             }
 
 
+def _uses_completion_token_budget(model_lower: str) -> bool:
+    """True for models whose API takes ``max_completion_tokens`` instead of ``max_tokens``.
+
+    Covers the OpenAI o-series (``o1``, ``o3``, ``o4-mini`` and Azure-prefixed variants) and the
+    GPT-5 / Azure-5 families. The o-series check is a regex rather than a substring list because
+    ``azure-o4-mini`` was silently missed by the previous ``{"o1", "o3"}`` membership test and every
+    call to it failed with a 400.
+    """
+    if re.search(r"(^|[^a-z0-9])o[1-9](-|$|[^a-z0-9])", model_lower):
+        return True
+    return any(key in model_lower for key in ("gpt-5", "azure-5", "5-mini"))
+
+
+def _rejects_temperature(model_lower: str) -> bool:
+    """True for models that error when ``temperature`` is sent at a value other than the default.
+
+    Three distinct upstream behaviours land here. The o-series and the GPT-5 / Azure-5 families
+    reject any value other than 1.0 ("Only temperature=1 is supported"), and the newest Anthropic
+    models reject the parameter outright ("`temperature` is deprecated for this model"). In every
+    case the only portable fix is to omit the field and accept the provider default.
+
+    That is a genuine confound: these models do not run at the temperature the caller requested.
+    Callers record the resolved sampling behaviour in their run manifests so the difference stays
+    visible in the results rather than being silently absorbed.
+
+    This predicate is a fast path only. :meth:`LLMClient.generate` also retries without the
+    parameter whenever the provider reports it as unsupported, so a model added to the gateway in
+    future works without a code change here.
+    """
+    if _uses_completion_token_budget(model_lower):
+        return True
+    return bool(re.search(r"claude-opus-4-[7-9]", model_lower))
+
+
+def _is_unsupported_parameter_error(exc) -> bool:
+    """True when the provider rejected a sampling parameter rather than the request itself."""
+    text = str(exc).lower()
+    markers = (
+        "unsupportedparamserror",
+        "don't support temperature",
+        "only temperature=1 is supported",
+        "temperature` is deprecated",
+        "temperature is deprecated",
+        "unsupported_value",
+    )
+    return any(marker in text for marker in markers)
+
+
+def _needs_large_token_budget(model_lower: str) -> bool:
+    """True for models that spend output tokens on hidden reasoning before answering.
+
+    Gemini 2.5 Pro returned truncated JSON (``{"verdict": "Not-in-``) at a 512-token budget because
+    the thinking trace consumed the allowance. Reasoning-family models have the same failure shape.
+
+    The whole Gemini 2.5 family is covered, not just Pro. Flash was initially left out and then
+    produced 7 truncated responses in 1,200 calls during the model panel — rare enough to miss in a
+    smoke test, frequent enough to put holes in a results table.
+    """
+    return _uses_completion_token_budget(model_lower) or "gemini-2.5" in model_lower
+
+
 class LLMClient:
     def __init__(self, provider: str = None, model: str = None, base_url: str = None):
         self.provider = (provider or os.getenv("LLM_PROVIDER", "azure")).lower()
         self.usage = UsageMeter()
+        # Set when a provider rejects `temperature` at runtime, so manifests can record that the
+        # requested sampling temperature was not actually applied.
+        self._temperature_unsupported = False
 
         if self.provider == "azure":
             api_key = os.getenv("AZURE_OPENAI_API_KEY")
@@ -151,6 +216,30 @@ class LLMClient:
                 base_url=base_url
             )
 
+    def resolved_sampling(self, requested_temperature: float = None) -> dict:
+        """Describes how this model actually samples, for recording in run manifests.
+
+        A run that asks for ``temperature=0.0`` does not get it on every model. The o-series, the
+        GPT-5 / Azure-5 families and the newest Anthropic models all run at a provider default
+        instead. Cross-model comparisons must disclose that, because part of any observed
+        difference between such a model and a temperature-0 model is sampling, not capability.
+        """
+        model_lower = self.model.lower()
+        honoured = not _rejects_temperature(model_lower) and not getattr(
+            self, "_temperature_unsupported", False
+        )
+        return {
+            "model": self.model,
+            "provider": self.provider,
+            "requested_temperature": requested_temperature,
+            "temperature_honoured": honoured,
+            "effective_temperature": requested_temperature if honoured else "provider_default",
+            "token_budget_parameter": (
+                "max_completion_tokens"
+                if _uses_completion_token_budget(model_lower) else "max_tokens"
+            ),
+        }
+
     def generate(self, prompt: str, system_prompt: str = None, json_mode: bool = False, temperature: float = 0.7, max_tokens: int = 4096) -> str:
         messages = []
         if system_prompt:
@@ -158,19 +247,24 @@ class LLMClient:
         messages.append({"role": "user", "content": prompt})
 
         model_lower = self.model.lower()
-        is_reasoning = any(k in model_lower for k in ["o1", "o3", "gpt-5", "azure-5", "5-mini"])
-        
         kwargs = {
             "model": self.model,
             "messages": messages,
         }
-        
-        if is_reasoning:
-            kwargs["max_completion_tokens"] = max(max_tokens, 4096)
-            # gpt-5/azure-5 models require temperature=1.0 or omit temperature
+
+        # Token budget: reasoning families take max_completion_tokens, everything else max_tokens.
+        # Models that think before answering need headroom or the visible answer gets truncated.
+        budget = max(max_tokens, 4096) if _needs_large_token_budget(model_lower) else max_tokens
+        if _uses_completion_token_budget(model_lower):
+            kwargs["max_completion_tokens"] = budget
         else:
+            kwargs["max_tokens"] = budget
+
+        # Temperature: omitted entirely for models that reject the parameter. This means those
+        # models run at their provider default rather than the temperature the caller asked for,
+        # which is a real confound and is recorded by callers in their run manifests.
+        if not _rejects_temperature(model_lower):
             kwargs["temperature"] = temperature
-            kwargs["max_tokens"] = max_tokens
 
         if json_mode and self.provider == "azure":
             kwargs["response_format"] = {"type": "json_object"}
@@ -183,6 +277,25 @@ class LLMClient:
             return response.choices[0].message.content
         except Exception as e:
             self.usage.record(time.perf_counter() - started, None, failed=True)
+            # A model the predicates above do not yet know about may still reject `temperature`.
+            # Drop it and retry once so a newly added gateway model works without a code change.
+            # The resolved sampling behaviour is surfaced by `resolved_sampling()` for manifests.
+            if "temperature" in kwargs and _is_unsupported_parameter_error(e):
+                logger.warning(
+                    "Model %s rejected the temperature parameter; retrying at the provider "
+                    "default and recording the substitution. Error: %s", self.model, e
+                )
+                kwargs.pop("temperature", None)
+                self._temperature_unsupported = True
+                retry_started = time.perf_counter()
+                try:
+                    response = self.client.chat.completions.create(**kwargs)
+                    self.usage.record(time.perf_counter() - retry_started,
+                                      getattr(response, "usage", None))
+                    return response.choices[0].message.content
+                except Exception as retry_error:
+                    self.usage.record(time.perf_counter() - retry_started, None, failed=True)
+                    e = retry_error
             # Fallback if response_format is not supported by local model
             if json_mode and "response_format" in kwargs:
                 logger.warning(f"Retrying generation without response_format due to error: {e}")

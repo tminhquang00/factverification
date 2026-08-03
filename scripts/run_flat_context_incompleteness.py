@@ -14,7 +14,7 @@ from dotenv import load_dotenv
 
 from kg_store import get_kg_store
 from llm_client import get_llm_client
-from scripts.run_incompleteness_pilot import mechanical_gold_for_graph
+from scripts.intervention_gold import intervention_gold
 
 
 def read_jsonl(path):
@@ -131,6 +131,8 @@ def main():
     parser.add_argument("--questions", default="data/nusmods_questions_200.jsonl")
     parser.add_argument("--degradation_dir", nargs="+", required=True)
     parser.add_argument("--graph_filename", default="nusmods_graph.json")
+    parser.add_argument("--reference_graph", default="data/nusmods_graph.json",
+                        help="Undegraded snapshot used as the reference world when deriving gold.")
     parser.add_argument("--provider", required=True, choices=["azure", "local"])
     parser.add_argument("--model", required=True)
     parser.add_argument("--seeds", type=int, nargs="*")
@@ -219,11 +221,14 @@ def main():
                     "rows": classified,
                 }, indent=2), encoding="utf-8")
 
+    reference_graph = json.loads(Path(args.reference_graph).read_text(encoding="utf-8"))
     rows = []
     for item in classified:
         graph = graph_cache[item["graph_hash"]]
-        store = store_cache[item["graph_hash"]]
-        gold = mechanical_gold_for_graph(item["triple"], graph, store)
+        # Gold comes from the reference graph and the condition graph only. No completeness
+        # declaration is consulted, so the model being scored has no influence on its own answer key.
+        gold_record = intervention_gold(item["triple"], reference_graph, graph)
+        gold = gold_record["verdict"]
         for condition in graph_groups[item["graph_hash"]]:
             prediction = item["prediction"]
             rows.append({
@@ -235,6 +240,8 @@ def main():
                 "retention": condition["retention"],
                 "triple": list(item["triple"]),
                 "gold": gold,
+                "world_truth": gold_record["world_truth"],
+                "evidence_state": gold_record["evidence_state"],
                 "prediction": prediction,
                 "binary_prediction": (
                     "Contradicted" if prediction == "Not-in-KG" else prediction
@@ -257,6 +264,15 @@ def main():
             "questions_sha256": file_sha256(args.questions),
             "script_sha256": file_sha256(__file__),
             "usage": client.usage.snapshot(),
+            # Not every model honours the requested temperature. The o-series, GPT-5/Azure-5 and
+            # the newest Anthropic models run at a provider default instead. Recording it here
+            # keeps that confound visible in cross-model comparisons.
+            "sampling": client.resolved_sampling(requested_temperature=0.0),
+            "gold_definition": {
+                "module": "scripts/intervention_gold.py",
+                "reference_graph": args.reference_graph,
+                "reads_completeness_declaration": False,
+            },
         },
         "rows": rows,
     }

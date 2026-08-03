@@ -1,6 +1,7 @@
 # Data and Benchmark Construction
 
 **Updated:** 2026-08-03
+**Gold revision:** 2026-08-03c — declaration-independent gold, with set-relation depletion handling
 **Current artifacts:** NUSMods 200-question study and RMIT 50-question transfer study
 
 This is the construction record for the current experiment. Older synthetic-claim benchmarks and
@@ -133,21 +134,67 @@ does not mean 80% of questions, answers, modules, decomposition agreement, or ac
 Every condition directory contains the degraded graph, a deleted-triple JSONL log, a companion
 completeness declaration, and a manifest with requested/realized retention and hashes.
 
-## 5. Mechanical gold
+## 5. Gold labels
 
 Gold is recomputed during rescoring rather than copied from a saved model run.
 
-| Full-world fact | Condition graph | Relation status | Gold |
+### 5.1 What changed, and why
+
+The previous gold consulted the **completeness declaration** to decide whether an absent fact should
+be `Contradicted` or `Not-in-KG`. So did the proposed `declared` routing mode. The answer key and the
+system being graded followed the same rule, so the system scored exactly 1.000 accuracy and 1.000
+macro-F1 in all 336 experimental cells with a zero-width confidence interval. That was a definition,
+not a measurement, and it has been replaced.
+
+### 5.2 The current definition
+
+[`scripts/intervention_gold.py`](../scripts/intervention_gold.py) computes gold from **two graphs and
+nothing else**. No declaration file is opened.
+
+| Input | Role |
+| --- | --- |
+| Reference graph — the full, undegraded snapshot | Stands in for "the world"; defines what is true |
+| Condition graph — the damaged graph for this cell | Defines what evidence the system could see |
+
+Two properties are recorded per claim, independently:
+
+**`world_truth`** (against the reference graph) — `true` if it asserts exactly this fact, `false` if
+it asserts a *different* value for the same subject and relation, `unknown` if it is silent (natural
+incompleteness such as staffing).
+
+**`evidence_state`** (against the condition graph) — `confirming`, `conflicting`, or `absent`.
+
+| `world_truth` | `evidence_state` | Gold | Why |
 | --- | --- | --- | --- |
-| True | Present | any | `Supported` |
-| True | Deleted/absent | incomplete | `Not-in-KG` |
-| False with incompatible value present | any | any | `Contradicted` |
-| False and absent | complete | `Contradicted` |
-| False and absent | incomplete | `Not-in-KG` |
+| `true` | `confirming` | `Supported` | The evidence is present. |
+| `true` | `absent` | `Not-in-KG` | The claim is true and we deleted the proof. Contradicting it is the harm under study. |
+| `false` | `conflicting` | `Contradicted` | The visible graph carries an incompatible value. |
+| `false` | `absent` | `Not-in-KG` | The conflicting value is gone; nothing visible licenses a contradiction. |
+| `unknown` | `absent` | `Not-in-KG` | Natural open-world absence. |
+
+`true`/`conflicting` and `unknown`/`conflicting` cannot occur, because degradation only removes
+facts. The sweep counts any such row as an anomaly, and the count is a self-check on the gold
+function itself.
+
+**Set-valued relations are the subtle case.** Random deletion removes individual members and leaves
+the container behind (`[ES2002, ES2660, IS2101, LC1016]` → `[ES2660]`). A naive "is the field
+present?" test treats the shrunken list as authoritative and turns a true-but-deleted prerequisite
+into a gold contradiction. The first implementation did exactly that, mislabelling 230 of 296
+supposed contradictions in one cell. The rule now applied: absence of a claimed member licenses
+`conflicting` only when the visible member set is provably identical to the reference member set.
+
+The residual anomaly count across 61,164 scored rows is **5**, all from one multi-hop triple
+(`MA4262 → MA2108S`), all falling back to the conservative `absent` label.
 
 String normalization handles organizational prefixes, person punctuation, course-code objects, and
-numeric strings. This gold is independent of the saved Stage 4 prediction, but it still shares the
-researcher-authored graph/declaration semantics and has no human validation in the present study.
+numeric strings.
+
+### 5.3 Remaining limitation
+
+Gold is now independent of every system under test, but it is still derived from graph contents
+rather than human judgement. A system that never contradicts from absence scores zero on the safety
+metrics by construction — which is why `declared_oracle` is reported everywhere as a **ceiling**
+rather than a result. Human validation on a stratified sample is the highest-value remaining item.
 
 ## 6. Artifact locations
 

@@ -90,7 +90,7 @@ class VerificationPipeline:
         entity. The 0.35 default preserves historical behaviour; open-domain graphs need it far
         higher (see docs/benchmarks/comprehensive_report_20260725.md).
         """
-        if routing_mode not in {"declared", "occupancy", "dynamic", "fixed_cwa", "fixed_owa"}:
+        if routing_mode not in {"declared", "occupancy", "dynamic", "fixed_cwa", "fixed_owa", "binary"}:
             raise ValueError(f"Unsupported routing mode: {routing_mode}")
         if not 0.0 <= entity_link_threshold <= 1.0:
             raise ValueError("entity_link_threshold must be between 0 and 1.")
@@ -558,7 +558,7 @@ class VerificationPipeline:
 
     def get_world_assumption(self, relation: str) -> str:
         """Selects closed- or open-world handling under the configured routing treatment."""
-        if self.routing_mode == "fixed_cwa":
+        if self.routing_mode in {"fixed_cwa", "binary"}:
             return "closed"
         if self.routing_mode == "fixed_owa":
             return "open"
@@ -598,7 +598,29 @@ class VerificationPipeline:
         }
 
     def stage_4_verify_triple(self, subject_code: str, relation: str, object_val) -> dict:
-        """Stage 4: Executes semantics-dispatched verification against the KG."""
+        """Stage 4: Executes semantics-dispatched verification against the KG.
+
+        Under ``binary`` routing the verifier has no third label at all: it models an external
+        binary fact checker whose only outputs are Supported and Contradicted. Every `Not-in-KG`
+        the symbolic core would have produced — including the ones caused by an unresolvable
+        entity, not only by an absent fact — collapses into `Contradicted`. This runs as its own
+        pass over the graph rather than as a relabelling of another system's output, so the arm
+        is a genuine baseline and not an arithmetic transform of the proposed route.
+        """
+        result = self._stage_4_verify_triple(subject_code, relation, object_val)
+        if self.routing_mode == "binary" and result["verdict"] == "Not-in-KG":
+            return {
+                "verdict": "Contradicted",
+                "reason": (
+                    "Binary routing has no Not-in-KG label, so the unsettled claim is reported as "
+                    f"contradicted. Underlying symbolic reason: {result.get('reason')}"
+                ),
+                "evidence": result.get("evidence"),
+            }
+        return result
+
+    def _stage_4_verify_triple(self, subject_code: str, relation: str, object_val) -> dict:
+        """Semantics-dispatched verification before any label-space collapse is applied."""
         if relation == "unclassified":
             return {"verdict": "Out-of-scope", "reason": "Claim type not covered by ontology.", "evidence": None}
             
