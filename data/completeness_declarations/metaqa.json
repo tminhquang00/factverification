@@ -1,0 +1,6 @@
+{
+  "dataset": "metaqa",
+  "authority": "benchmark graph view; undeclared relations remain incomplete",
+  "default": "incomplete",
+  "relations": {}
+}

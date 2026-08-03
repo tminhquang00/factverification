@@ -1,439 +1,199 @@
-# Experiment Runbook: RMIT, FactKG, and CoDEx
+# Experiment Runbook
 
-This runbook describes how to run the current experiments from Windows PowerShell and where every result is saved.
+**Updated:** 2026-08-03
+**Canonical study directory:** `output/experiments/incompleteness_final_20260803/`
 
-Run all commands from the repository root:
+Run commands from the repository root with PowerShell. Do not cite an aggregate unless its row-level
+source file, hashes, and failure counts are present.
 
-```powershell
-Set-Location C:\Users\Admin\Desktop\crawler
-```
-
-## 1. Result-Saving Rules
-
-| Command | Saved automatically? | Output |
-| --- | --- | --- |
-| Unit tests | No | Terminal only |
-| RMIT benchmark generator | Yes | `data/advising/rmit_prerequisite_completeness_v0.jsonl` and manifest |
-| RMIT graph-destruction control | Yes | Row-level JSONL and summary JSON under `output/experiments/` |
-| RMIT expert-audit generator/validator | Yes | CSV, manifest, and summary under `data/advising/` |
-| `eval_rmit.py` | Yes | `output/rmit_evaluation_run.json` |
-| `eval_harness.py` for FactKG/CoDEx | Only with `--output_file` | The path supplied to `--output_file` |
-| `scripts/run_benchmark_sweep.py` | Yes | Per-cell JSON + `.log` and a `process_manifest.json` under `output/experiments/<run_id>/` |
-| `scripts/diagnose_object_namespace.py` | Only with `--out` | The path supplied to `--out` |
-| `scripts/sweep_entity_threshold.py` | Only with `--out` | The path supplied to `--out` |
-| `scripts/run_kg_destruction_control.py` | Only with `--out` | The path supplied to `--out` |
-
-## 1a. Evaluation Flags That Change What Is Measured
-
-Three flags materially change the measurement and must be recorded with any result. All three are
-serialized into the output JSON.
-
-| Flag | Default | Why it matters |
-| --- | --- | --- |
-| `--sample {random,prefix}` | `random` | `data/factkg_test.jsonl` is sorted into contiguous reasoning-type blocks, so `prefix` selects 2 of 13 reasoning types and inflates the majority floor from 51.35% to 64.60%. Use `prefix` only to reproduce a historical run. |
-| `--sample_seed` | `20260725` | Determines which rows enter a random sample. Runs are comparable only at the same seed. |
-| `--entity_link_threshold` | `0.35` | Minimum bi-encoder cosine score to accept an entity link. Below the threshold the subject is reported unresolved instead of linked to its nearest neighbour. **Open-domain graphs need ≈0.95**; select it with `scripts/sweep_entity_threshold.py` on a held-out split, never on the evaluation rows. |
-| `--withhold_unresolved_claims` (both harnesses) | off | Ablation. Withholds claims whose subject could not be linked from the verdict vote. Measured at **+0.8 pts on CoDEx** (inside that cell's 7.2% flip rate) against **−2.67 pts on RMIT** (reproducible), so it ships disabled. Re-measure after the coordinator-existence decomposition is fixed. |
-
-> [!IMPORTANT]
-> A crash is no longer scored as a prediction. Both harnesses leave the row unscored (`pred: null`,
-> `raw_pred: "Error"`) and report `n_scored` alongside `total_evaluated`. Accuracy is computed over
-> scored rows only. Always check `n_unscored_errors` before citing an accuracy.
-
-> [!IMPORTANT]
-> If `--output_file` is omitted from a FactKG or CoDEx command, metrics are printed to the terminal but no result JSON is written.
-
-The repository's `.gitignore` excludes `output/`. Experiment outputs remain on the local machine but do not normally appear in Git commits.
-
-Saving a result does not automatically make it validated or citable. New runs remain local candidate artifacts until their protocol and consistency checks are recorded in `experiments/registry.json`.
-
-## 2. Environment Setup
-
-Install dependencies using the repository virtual environment:
+## 1. Environment and validation
 
 ```powershell
-& .venv\Scripts\python.exe -m pip install -r requirements.txt
+& .venv\Scripts\python.exe -m pip install -r requirements-experiments.txt
+& .venv\Scripts\python.exe -m unittest discover -s tests
 ```
 
-Run the regression suite before an experiment:
+Expected regression result: **101 tests pass**.
+
+Local model configuration:
+
+- LM Studio server: `http://localhost:1234/v1`
+- model: `google/gemma-4-e4b`
+- OpenAI-compatible API enabled
+
+Hosted runs use provider `azure` and model `azure-4.1-mini`; required endpoint credentials come from
+the existing `.env` configuration.
+
+## 2. Rebuild inputs
+
+Generate the current question sets:
 
 ```powershell
-& .venv\Scripts\python.exe -m unittest discover -s tests -v
+& .venv\Scripts\python.exe scripts/generate_nusmods_questions.py `
+  --graph data/nusmods_graph.json --out data/nusmods_questions_200.jsonl `
+  --seed 20260803 --limit 200
+
+& .venv\Scripts\python.exe scripts/generate_rmit_questions.py `
+  --graph data/rmit_graph.json --out data/rmit_questions_50.jsonl `
+  --seed 20260803
 ```
 
-Expected current result: **35 tests pass**.
-
-### Local LLM
-
-Start an OpenAI-compatible local server such as LM Studio, load the model, and configure `.env`:
-
-```ini
-LLM_PROVIDER=local
-LOCAL_LLM_API_BASE=http://localhost:1234/v1
-LOCAL_LLM_MODEL_NAME=google/gemma-4-e4b
-```
-
-The model name must match the identifier exposed by the local server.
-
-### Azure OpenAI
-
-Configure `.env` without committing it:
-
-```ini
-LLM_PROVIDER=azure
-AZURE_OPENAI_API_KEY=<secret>
-AZURE_OPENAI_ENDPOINT=https://<resource>.openai.azure.com/
-AZURE_OPENAI_API_VERSION=2025-03-01-preview
-AZURE_OPENAI_DEPLOYMENT_NAME=azure-4.1-mini
-```
-
-RMIT deterministic completeness and graph-destruction experiments do not call an LLM. FactKG, CoDEx, and the legacy RMIT claim-level evaluation do.
-
-## 3. Check Input Data
-
-The current workspace contains:
-
-| Dataset | File | Rows |
-| --- | --- | ---: |
-| RMIT claim benchmark | `data/rmit_test_set.jsonl` | 300 |
-| RMIT completeness candidate | `data/advising/rmit_prerequisite_completeness_v0.jsonl` | 181 |
-| FactKG | `data/factkg_test.jsonl` | 9,041 |
-| CoDEx | `data/codex_test.jsonl` | 1,000 |
-
-Recount the files locally:
+Build three NUSMods deletion seeds. Repeat the command with seeds `20260803` and `20260804`.
 
 ```powershell
-$paths = @(
-    "data/rmit_test_set.jsonl",
-    "data/advising/rmit_prerequisite_completeness_v0.jsonl",
-    "data/factkg_test.jsonl",
-    "data/codex_test.jsonl"
-)
-
-foreach ($path in $paths) {
-    $count = (Get-Content $path | Where-Object { $_.Trim() }).Count
-    Write-Host "$path`: $count"
-}
+& .venv\Scripts\python.exe scripts/build_degraded_graphs.py `
+  --graph data/nusmods_graph.json `
+  --declaration data/completeness_declarations/nusmods.json `
+  --outdir output/experiments/nusmods_degradation_final `
+  --retention 1.0 0.95 0.90 0.80 0.50 0.20 `
+  --modes random clustered --seed 20260802 --dataset_name nusmods
 ```
 
-## 4. RMIT Completeness Experiment
+Build RMIT with retention `1.0 0.50 0.20`, graph `data/rmit_graph.json`, declaration
+`data/completeness_declarations/rmit.json`, output
+`output/experiments/rmit_degradation_final`, and the same three seeds.
 
-This is the primary new experiment track. It evaluates completeness of the course IDs listed in each course's prerequisite section. It does not yet model prerequisite `AND`/`OR` logic or student eligibility.
+Every condition must contain a graph, `completeness.json`, `deletion_log.jsonl`, and `manifest.json`.
 
-### Step 1: Generate the candidate benchmark
+## 3. Generate answers and decompose claims
+
+The canonical NUSMods command shape is:
 
 ```powershell
-& .venv\Scripts\python.exe scripts\generate_advising_benchmark.py
+& .venv\Scripts\python.exe scripts/run_incompleteness_pilot.py `
+  --questions data/nusmods_questions_200.jsonl `
+  --full_graph data/nusmods_graph.json `
+  --full_declaration data/completeness_declarations/nusmods.json `
+  --degraded_dir output/experiments/nusmods_degradation_final/seed_20260802/random__retention_050 `
+  --provider azure --model azure-4.1-mini `
+  --detector_provider azure --detector_model azure-4.1-mini `
+  --limit 200 --max_workers 4 `
+  --output output/experiments/incompleteness_final_20260803/azure_self_fixed.json
 ```
 
-Saved outputs:
-
-* `data/advising/rmit_prerequisite_completeness_v0.jsonl`: 181 row-level candidate responses.
-* `data/advising/rmit_prerequisite_completeness_v0.manifest.json`: graph hash, split counts, condition counts, and status.
-
-This command overwrites those two generated v0 files deterministically.
-
-### Step 2: Generate the expert-audit packet
+For the local self arm, set both provider/model pairs to
+`local / google/gemma-4-e4b`. Cross-detector arms reuse the exact same answer list:
 
 ```powershell
-& .venv\Scripts\python.exe scripts\generate_advisor_audit_packet.py
+& .venv\Scripts\python.exe scripts/run_incompleteness_pilot.py `
+  <same input arguments> `
+  --provider local --model google/gemma-4-e4b `
+  --detector_provider azure --detector_model azure-4.1-mini `
+  --reuse_answers output/experiments/incompleteness_final_20260803/gemma_self_final.json `
+  --limit 200 --max_workers 2 `
+  --output output/experiments/incompleteness_final_20260803/gemma_gen_azure_det.json
 ```
 
-Saved outputs:
+Use the symmetric configuration for Azure answers checked by Gemma. `--reuse_answers` runs only the
+two decomposition passes and deterministic verification; it never regenerates the answers. After a
+mapping-only repair, add `--reuse_decomposition <prior-run.json>` as well; this preserves the saved
+answer text and both decomposition passes while rerunning only deterministic mapping and
+verification. The final mapping-only outputs are `gemma_self_authoritative.json` and
+`azure_gen_gemma_det_authoritative.json`.
 
-* `data/advising/rmit_prerequisite_expected_set_audit_v0.csv`
-* `data/advising/rmit_prerequisite_expected_set_audit_v0.manifest.json`
+RMIT uses `data/rmit_questions_50.jsonl`, `data/rmit_graph.json`, the RMIT declaration, the RMIT
+50%-retention condition, and `--limit 50`.
 
-> [!WARNING]
-> Regenerating the packet overwrites reviewer entries in the CSV. Generate it before review, not after the reviewer starts editing it.
+## 4. Deterministic rescore and stage attribution
 
-The reviewer follows [advisor_audit_protocol.md](advisor_audit_protocol.md). Test and calibration courses are reviewed first.
-
-### Step 3: Validate the audit packet
+Rescore all saved atoms across every NUSMods deletion graph:
 
 ```powershell
-& .venv\Scripts\python.exe scripts\validate_advisor_audit.py
+& .venv\Scripts\python.exe scripts/rescore_incompleteness_sweep.py `
+  --pilot `
+    output/experiments/incompleteness_final_20260803/azure_self_fixed.json `
+    output/experiments/incompleteness_final_20260803/gemma_self_authoritative.json `
+    output/experiments/incompleteness_final_20260803/azure_gen_gemma_det_authoritative.json `
+    output/experiments/incompleteness_final_20260803/gemma_gen_azure_det.json `
+  --degradation_dir output/experiments/nusmods_degradation_final `
+  --full_graph data/nusmods_graph.json `
+  --full_declaration data/completeness_declarations/nusmods.json `
+  --occupancy_thresholds 0.50 0.70 0.85 0.95 `
+  --output output/experiments/incompleteness_final_20260803/nusmods_rescore_authoritative.json
+
+& .venv\Scripts\python.exe scripts/analyze_incompleteness_results.py `
+  --input output/experiments/incompleteness_final_20260803/nusmods_rescore_authoritative.json `
+  --output output/experiments/incompleteness_final_20260803/nusmods_rescore_authoritative_analysis.json `
+  --iterations 1000 --seed 20260803
 ```
 
-Saved output:
+Run `scripts/analyze_stage_attribution.py` with the full graph, declaration, questions, and the same
+pilot list, writing `nusmods_stage_attribution_authoritative.json`. It reports gold-link
+verification, linker + verifier, Stage 4 on extracted atoms, and end-to-end expected-triple
+precision/recall/F1.
 
-* `data/advising/rmit_prerequisite_expected_set_audit_v0.summary.json`
+## 5. Baselines
 
-Before review, the expected status is `awaiting_review`. The packet is ready for a revised dataset only when the status becomes `ready_for_dataset_revision`.
-
-Inspect the audit status:
+Oracle-context LLM baseline:
 
 ```powershell
-$audit = Get-Content data\advising\rmit_prerequisite_expected_set_audit_v0.summary.json -Raw | ConvertFrom-Json
-$audit | Select-Object status, reviewed_courses, remaining_required_courses, validation_errors | Format-List
+& .venv\Scripts\python.exe scripts/run_flat_context_incompleteness.py `
+  --questions data/nusmods_questions_200.jsonl `
+  --degradation_dir output/experiments/nusmods_degradation_final `
+  --graph_filename nusmods_graph.json `
+  --provider azure --model azure-4.1-mini `
+  --seeds 20260803 --retentions 100 95 80 50 20 `
+  --modes random clustered --max_workers 4 `
+  --output output/experiments/incompleteness_final_20260803/nusmods_flat_azure.json
 ```
 
-### Step 4: Run the paired graph-destruction control
+Analyze with `scripts/analyze_flat_context_results.py`. Run the same command with the local model for
+the Gemma arm.
 
-Run the held-out test split with the default five permutation seeds:
+MiniCheck baseline:
 
 ```powershell
-& .venv\Scripts\python.exe scripts\run_graph_destruction_control.py
+& .venv\Scripts\python.exe scripts/run_minicheck_incompleteness.py `
+  --questions data/nusmods_questions_200.jsonl `
+  --degradation_dir output/experiments/nusmods_degradation_final `
+  --graph_filename nusmods_graph.json `
+  --seeds 20260803 --retentions 100 95 80 50 20 `
+  --modes random clustered `
+  --output output/experiments/incompleteness_final_20260803/nusmods_minicheck.json
+
+& .venv\Scripts\python.exe scripts/analyze_minicheck_results.py `
+  --input output/experiments/incompleteness_final_20260803/nusmods_minicheck.json `
+  --output output/experiments/incompleteness_final_20260803/nusmods_minicheck_analysis.json `
+  --bootstrap 1000 --seed 20260803
 ```
 
-Saved outputs:
+MiniCheck is binary. Its `Unsupported -> Contradicted` mapping is intentionally naive and is used
+only to measure the open-world false-contradiction failure.
 
-* `output/experiments/e0_prerequisite_graph_destruction_v0.rows.jsonl`: one row per example, graph condition, and seed.
-* `output/experiments/e0_prerequisite_graph_destruction_v0.summary.json`: aggregate metrics, graph hashes, artifact hashes, and subject-clustered intervals.
-
-Inspect the condition table:
+## 6. Controls and public transfer
 
 ```powershell
-$summary = Get-Content output\experiments\e0_prerequisite_graph_destruction_v0.summary.json -Raw | ConvertFrom-Json
-$summary.condition_summaries |
-    Select-Object condition, seed, n, accuracy, observed_accuracy_drop_vs_baseline, clustered_bootstrap_ci_95 |
-    Format-Table -AutoSize
+& .venv\Scripts\python.exe scripts/evaluate_linker_nil.py `
+  --sample_per_class 500 --seed 20260803 `
+  --output output/experiments/incompleteness_final_20260803/linker_nil.json
+
+& .venv\Scripts\python.exe scripts/run_benchmark_sweep.py `
+  --run_id final_public_20260803_local --providers local `
+  --rmit_limit 300 --public_limit 500 --max_workers 2 --max_parallel 1 `
+  --sampling random prefix --sample_seed 20260803 --entity_link_threshold 0.95
 ```
 
-Run another split or seed set without replacing the default outputs:
+Run `scripts/run_kg_destruction_control.py` for NUSMods and CoDEx and
+`scripts/run_graph_destruction_control.py` for the RMIT set-valued control. The shuffled prediction
+change must exceed `0.20`.
+
+Recompute public aggregates from rows:
 
 ```powershell
-& .venv\Scripts\python.exe scripts\run_graph_destruction_control.py `
-    --split development `
-    --seeds 101 103 107 `
-    --rows output\experiments\e0_prerequisite_graph_destruction_development.rows.jsonl `
-    --summary output\experiments\e0_prerequisite_graph_destruction_development.summary.json
+& .venv\Scripts\python.exe scripts/summarize_rerun_results.py `
+  --dir output/experiments/final_public_20260803_local `
+  --out output/experiments/final_public_20260803_local/aggregate_summary.json
 ```
 
-### Optional: Legacy RMIT claim-level evaluation
+## 7. Completion checklist
 
-```powershell
-& .venv\Scripts\python.exe eval_rmit.py
-```
-
-This always saves detailed predictions to:
-
-* `output/rmit_evaluation_run.json`
-
-This 300-row synthetic benchmark is useful as a decomposition and claim-verification component test. It is not an answer-completeness or advisor-audited benchmark and must not support the headline paper claim.
-
-## 5. FactKG Experiments
-
-FactKG is a binary `Supported`/`Contradicted` claim-verification benchmark. The harness maps uncertainty outcomes such as `Not-in-KG` to `Contradicted` for forced binary evaluation. It does not test set-valued answer completeness.
-
-### FactKG smoke test
-
-Use one worker first to simplify debugging and avoid unnecessary API concurrency:
-
-```powershell
-& .venv\Scripts\python.exe eval_harness.py `
-    --dataset factkg `
-    --method pipeline `
-    --limit 20 `
-    --provider local `
-    --model_name google/gemma-4-e4b `
-    --max_workers 1 `
-    --output_file output\experiments\factkg_pipeline_smoke.json
-```
-
-Saved output:
-
-* `output/experiments/factkg_pipeline_smoke.json`
-
-### Fixed-size experiment
-
-After the smoke test passes, run a preregistered sample size such as 500:
-
-```powershell
-& .venv\Scripts\python.exe eval_harness.py `
-    --dataset factkg `
-    --method pipeline `
-    --limit 500 `
-    --provider local `
-    --model_name google/gemma-4-e4b `
-    --max_workers 4 `
-    --output_file output\experiments\factkg_pipeline_local_n500.json
-```
-
-Azure variant:
-
-```powershell
-& .venv\Scripts\python.exe eval_harness.py `
-    --dataset factkg `
-    --method pipeline `
-    --limit 500 `
-    --provider azure `
-    --model_name azure-4.1-mini `
-    --max_workers 4 `
-    --output_file output\experiments\factkg_pipeline_azure_n500.json
-```
-
-### Baselines
-
-Closed-book LLM:
-
-```powershell
-& .venv\Scripts\python.exe eval_harness.py `
-    --dataset factkg `
-    --method closed_book_llm `
-    --limit 500 `
-    --provider local `
-    --model_name google/gemma-4-e4b `
-    --max_workers 4 `
-    --output_file output\experiments\factkg_closed_book_local_n500.json
-```
-
-Context LLM:
-
-```powershell
-& .venv\Scripts\python.exe eval_harness.py `
-    --dataset factkg `
-    --method context_llm `
-    --limit 500 `
-    --provider local `
-    --model_name google/gemma-4-e4b `
-    --max_workers 4 `
-    --output_file output\experiments\factkg_context_llm_local_n500.json
-```
-
-The complete file has 9,041 rows. A full run can be requested with `--limit 9041`, but it is expensive and should only be run after freezing the model, prompt, code, and evaluation plan.
-
-## 6. CoDEx Experiments
-
-CoDEx uses the background graph in `data/codex_graph.json` and the tri-state labels in `data/codex_test.jsonl`. The current file has 1,000 rows. This remains a claim-level public benchmark, not a response-completeness benchmark.
-
-### CoDEx smoke test
-
-```powershell
-& .venv\Scripts\python.exe eval_harness.py `
-    --dataset codex `
-    --method pipeline `
-    --limit 20 `
-    --provider local `
-    --model_name google/gemma-4-e4b `
-    --max_workers 1 `
-    --output_file output\experiments\codex_pipeline_smoke.json
-```
-
-### Fixed-size or full experiment
-
-```powershell
-& .venv\Scripts\python.exe eval_harness.py `
-    --dataset codex `
-    --method pipeline `
-    --limit 500 `
-    --provider local `
-    --model_name google/gemma-4-e4b `
-    --max_workers 4 `
-    --output_file output\experiments\codex_pipeline_local_n500.json
-```
-
-For all 1,000 rows, change both `--limit` and the output name:
-
-```powershell
-& .venv\Scripts\python.exe eval_harness.py `
-    --dataset codex `
-    --method pipeline `
-    --limit 1000 `
-    --provider local `
-    --model_name google/gemma-4-e4b `
-    --max_workers 4 `
-    --output_file output\experiments\codex_pipeline_local_n1000.json
-```
-
-The `closed_book_llm` and `context_llm` baselines use the same command shape as FactKG; change `--dataset` to `codex` and choose a unique output filename.
-
-## 7. Inspect Public-Dataset Results
-
-Summarize a saved result without printing all row-level details:
-
-```powershell
-$result = Get-Content output\experiments\factkg_pipeline_local_n500.json -Raw | ConvertFrom-Json
-$result |
-    Select-Object dataset, method, model_name, provider, total_evaluated, accuracy, ci_95, coverage, selective_accuracy |
-    Format-List
-```
-
-Inspect the first five errors:
-
-```powershell
-$result.results_detail |
-    Where-Object { $_.pred -ne $_.gold } |
-    Select-Object -First 5 id, claim, gold, pred, raw_pred, reasoning_type |
-    Format-List
-```
-
-To save terminal logs as well as structured JSON:
-
-```powershell
-& .venv\Scripts\python.exe eval_harness.py `
-    --dataset factkg `
-    --method pipeline `
-    --limit 20 `
-    --provider local `
-    --model_name google/gemma-4-e4b `
-    --max_workers 1 `
-    --output_file output\experiments\factkg_pipeline_smoke.json `
-    2>&1 | Tee-Object -FilePath output\experiments\factkg_pipeline_smoke.log
-```
-
-## 8. Do Not Run for Research Evidence
-
-The following entry points are intentionally disabled because they previously generated simulated, label-conditioned, or hand-written statistics:
-
-* `scripts/run_full_experiment_sweep.py`
-* `scripts/run_revised_experiments.py`
-* `scripts/train_meta_confidence.py`
-
-Do not cite historical numbers in the invalidated benchmark or calibration reports. Check [experiment_registry.md](experiment_registry.md) and `experiments/registry.json` before using any artifact.
-
-## 9. Full Sweep and Grounding Gate
-
-### Run every cell in one command
-
-```powershell
-& .venv\Scripts\python.exe scripts\run_benchmark_sweep.py --run_id rerun_20260726_fixed
-```
-
-This launches RMIT (n=300) plus FactKG and CoDEx (n=500) for both engines under **both** sampling
-modes, capped at `--max_parallel` concurrent processes. It writes per-cell JSON and logs plus a
-`process_manifest.json` recording exit codes, UTC timestamps, and the exact argv of every cell.
-
-Recompute all aggregates from row-level predictions afterwards:
-
-```powershell
-& .venv\Scripts\python.exe scripts\summarize_rerun_results.py `
-    --dir output\experiments\rerun_20260726_fixed `
-    --out output\experiments\rerun_20260726_fixed\aggregate_summary.json
-```
-
-### Grounding gate (run before citing any accuracy)
-
-Accuracy that does not move when the graph's factual content is destroyed is not verification.
-
-```powershell
-& .venv\Scripts\python.exe -m scripts.run_kg_destruction_control `
-    --entity_link_threshold 0.95 `
-    --out output\diagnostics\codex_destruction_control.json
-```
-
-The script exits non-zero if the mean prediction change rate under within-relation shuffling falls
-below `--min_change_rate` (default 0.20). Before the stage-3 repair this control sat at 1.8–2.8%.
-
-### Stage-3 diagnostics
-
-```powershell
-& .venv\Scripts\python.exe -m scripts.diagnose_object_namespace --thresholds 0.35 0.95
-& .venv\Scripts\python.exe -m scripts.sweep_entity_threshold
-```
-
-Both isolate stages 3–4 with no LLM, so they are deterministic and take seconds. Note they
-reconstruct the **asserted** triple from `text`: in `codex_test.jsonl` the `triples` field holds the
-*true* edge for `Contradicted` rows, so feeding it directly hands the verifier the answer.
-
-## 10. Recommended Run Order
-
-1. Run all tests (expect 35 passing).
-2. Run the stage-3 diagnostics and the grounding gate; both are fast and LLM-free.
-3. Run the RMIT benchmark generator only if the v0 candidate needs regeneration.
-4. Generate the expert packet only before review begins, then validate it.
-5. Run the RMIT paired graph-destruction control.
-6. Run small FactKG and CoDEx smoke tests.
-7. Freeze model and command settings.
-8. Run `scripts/run_benchmark_sweep.py` with a fresh `--run_id`.
-9. Recompute aggregates from rows and register the result as `candidate`.
+- every requested cell has a row-level JSON artifact;
+- process manifests have exit code zero; start-time code hashes are required for new cells. In the
+  final artifact set, all local cells and the affected Azure NUSMods/RMIT reruns have them. The four
+  earlier Azure CoDEx/FactKG cells predate hash capture and are retained as an explicit provenance
+  exception because the later institutional mapping repair is schema-gated away from those data;
+- `n_failed_calls`, unscored rows, and parse errors are reported, not hidden;
+- requested and realized deletion retention are both available;
+- all aggregates are regenerated from row-level data;
+- the 101-test suite and graph-destruction gates pass;
+- current status and final report identify limitations, especially mechanical gold and oracle context.

@@ -1,0 +1,6 @@
+{
+  "dataset": "codex",
+  "authority": "benchmark graph view with held-out edges; undeclared relations remain incomplete",
+  "default": "incomplete",
+  "relations": {}
+}

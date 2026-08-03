@@ -1,0 +1,16 @@
+{
+  "seed": 20260803,
+  "question_count": 50,
+  "question_type_distribution": {
+    "prerequisite-multi-hop": 4,
+    "scalar-credit": 8,
+    "school-lookup": 8,
+    "prerequisite-existence": 10,
+    "conjunction": 8,
+    "coordinator-lookup": 8,
+    "mixed-fact-advice": 4
+  },
+  "graph_sha256": "b54e43034ecfd50b8ff977ce9bee5ba0d37b1f1d53550763786c36f3fa26cc81",
+  "questions_sha256": "f081e97b51aedbe40b555a3166a4f2c76e5aab14e7efbd6742f0953f8412ff32",
+  "script_sha256": "48563a50928b92dde151d9d9503f49d2347f1b5b810158589f1490ab4fcba849"
+}

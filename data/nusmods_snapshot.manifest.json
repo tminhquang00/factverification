@@ -1,0 +1,78 @@
+{
+  "dataset": "nusmods",
+  "source": "NUSMods v2 API",
+  "academic_years": [
+    "2020-2021",
+    "2021-2022",
+    "2022-2023",
+    "2023-2024",
+    "2024-2025",
+    "2025-2026"
+  ],
+  "fetch_date": "2026-07-26",
+  "snapshot_id": "nusmods-ay2020-2026-2c688ccb9437",
+  "compiled_graph": "data/nusmods_graph.json",
+  "compiled_graph_sha256": "2c688ccb9437ea33a3cf8c2fe63d291fa6fcc36ec5bdb302c7e6496f95ca337d",
+  "raw_files": [
+    {
+      "path": "data/nusmods/2020-2021_moduleInformation.json",
+      "sha256": "371d9718cf63063142e827fb20e243991ee00401677ab2db93a3fab4f601d1b3",
+      "size_bytes": 6750053
+    },
+    {
+      "path": "data/nusmods/2020-2021_moduleList.json",
+      "sha256": "dcb3c757895a18ff932bcc17fb3ea1c733ae4075742a2b822cdc8b36a5f8c29c",
+      "size_bytes": 765588
+    },
+    {
+      "path": "data/nusmods/2021-2022_moduleInformation.json",
+      "sha256": "f23344782839f859380130dfc101a2bb37339518a52689f384a9a563bc209127",
+      "size_bytes": 7037609
+    },
+    {
+      "path": "data/nusmods/2021-2022_moduleList.json",
+      "sha256": "115d140a161504520879ab48fa1ac88b360def8df03fb3de90568d0d63c4170d",
+      "size_bytes": 795706
+    },
+    {
+      "path": "data/nusmods/2022-2023_moduleInformation.json",
+      "sha256": "4ce823c0a826b62690d3ca7f128bc5832474316f45720558a2abbad29d83b7d8",
+      "size_bytes": 7884669
+    },
+    {
+      "path": "data/nusmods/2022-2023_moduleList.json",
+      "sha256": "f0f16d87fc206a0cdb9178232b1f0d0f1aa428412c0c38c1242c3678b66af4ac",
+      "size_bytes": 840937
+    },
+    {
+      "path": "data/nusmods/2023-2024_moduleInformation.json",
+      "sha256": "7878fbc5033adc412836557ad2b36d2859997365426701091bdaed5af54b5c9d",
+      "size_bytes": 8971957
+    },
+    {
+      "path": "data/nusmods/2023-2024_moduleList.json",
+      "sha256": "0ea59347505c98cc09b18f01dd985e0ac8c5e0e91c17af5378a2338d1344a806",
+      "size_bytes": 900118
+    },
+    {
+      "path": "data/nusmods/2024-2025_moduleInformation.json",
+      "sha256": "acd251957ff0c5f2d8235470dc68fc5f304307e622b7ed24e65eaf1d7c82052a",
+      "size_bytes": 9138631
+    },
+    {
+      "path": "data/nusmods/2024-2025_moduleList.json",
+      "sha256": "b3a6ec7dc660b69b35880612b7d5f1a123c8746e7cfe9c18a845dbe577d44b35",
+      "size_bytes": 911548
+    },
+    {
+      "path": "data/nusmods/2025-2026_moduleInformation.json",
+      "sha256": "a8647251d8667a98a7471c566aefb2a54e7d3ffe34c2a7b07115525560c2f68e",
+      "size_bytes": 9446287
+    },
+    {
+      "path": "data/nusmods/2025-2026_moduleList.json",
+      "sha256": "9210807f738b3a02ab7762c7c648b9da5157adaa63366c88db6c8f315dfe4eac",
+      "size_bytes": 929551
+    }
+  ]
+}

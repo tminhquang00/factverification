@@ -1,6 +1,7 @@
 import os
 import json
 import logging
+from pathlib import Path
 
 logger = logging.getLogger("kg_store")
 
@@ -11,11 +12,47 @@ class KGStore:
     (or any public DBpedia-lite triple set mapped to course fields). Read-only lookup methods
     support concurrent requests, ensuring thread safety during parallel harness executions.
     """
-    def __init__(self, graph_json_path="data/rmit_graph.json"):
+    def __init__(self, graph_json_path="data/rmit_graph.json", completeness_path=None):
         """Initializes the KGStore and loads the compiled graph from the JSON path."""
         self.graph_json_path = graph_json_path
         self.courses = {}
+        self._relation_occupancy_cache = {}
+        self.completeness_path = completeness_path or self._infer_completeness_path(graph_json_path)
+        self.completeness_declarations = {}
+        self.default_completeness = None
         self.load_graph()
+        self.load_completeness_declarations()
+
+    @staticmethod
+    def _infer_completeness_path(graph_json_path):
+        """Finds a declaration next to the standard dataset configs, when one exists."""
+        stem = Path(graph_json_path).stem
+        if stem.endswith("_graph"):
+            stem = stem[:-6]
+        candidate = Path(__file__).resolve().parent / "data" / "completeness_declarations" / f"{stem}.json"
+        return str(candidate) if candidate.exists() else None
+
+    def load_completeness_declarations(self):
+        """Loads authoritative per-relation completeness independently of observed occupancy."""
+        self.completeness_declarations = {}
+        self.default_completeness = None
+        if not self.completeness_path:
+            return
+        try:
+            with open(self.completeness_path, "r", encoding="utf-8") as handle:
+                payload = json.load(handle)
+            self.completeness_declarations = dict(payload.get("relations", {}))
+            self.default_completeness = payload.get("default")
+            logger.info(
+                "Loaded %d completeness declarations from %s",
+                len(self.completeness_declarations), self.completeness_path,
+            )
+        except FileNotFoundError:
+            logger.warning("Completeness declaration not found: %s", self.completeness_path)
+        except (OSError, ValueError, TypeError) as exc:
+            raise ValueError(
+                f"Invalid completeness declaration {self.completeness_path}: {exc}"
+            ) from exc
 
     def load_graph(self):
         """Loads the compiled JSON graph database.
@@ -23,6 +60,7 @@ class KGStore:
         Populates self.courses by loading the serialized dictionary from graph_json_path.
         Logs warning or error if file path is missing or load fails.
         """
+        self._relation_occupancy_cache = {}
         if os.path.exists(self.graph_json_path):
             try:
                 with open(self.graph_json_path, "r", encoding="utf-8") as f:
@@ -152,8 +190,31 @@ class KGStore:
             }
         return None
 
+    def get_semesters(self, course_id: str) -> list:
+        """Returns normalized semester identifiers recorded for a course."""
+        course = self.get_course(course_id)
+        if not course:
+            return []
+        return [str(value).strip() for value in course.get("semesters", []) or []]
+
+    def get_declared_world_assumption(self, relation: str):
+        """Returns ``closed``/``open`` for a declared relation, or ``None`` if undeclared."""
+        declaration = self.completeness_declarations.get(relation, self.default_completeness)
+        if declaration is None:
+            return None
+        normalized = str(declaration).strip().lower().replace("_", "-")
+        if normalized in {"complete", "closed", "closed-world", "cwa"}:
+            return "closed"
+        if normalized in {"incomplete", "open", "open-world", "owa"}:
+            return "open"
+        raise ValueError(
+            f"Unsupported completeness value {declaration!r} for relation {relation!r}."
+        )
+
     def estimate_relation_occupancy(self, relation: str) -> float:
         """Returns the fraction of entity records with a populated field for the relation."""
+        if relation in self._relation_occupancy_cache:
+            return self._relation_occupancy_cache[relation]
         if not self.courses:
             return 0.0
             
@@ -163,6 +224,8 @@ class KGStore:
             "hasCreditValue": "credits",
             "partOfSchool": "school",
             "taughtBy": "coordinator",
+            "offeredInTerm": "semesters",
+            "preclusions": "preclusions",
             "coordinator": "coordinator",
             "email": "coordinator_email"
         }
@@ -175,10 +238,12 @@ class KGStore:
             if key not in course:
                 continue
             value = course.get(key)
-            if value is not None and value != "" and value != "Unknown":
+            if value not in (None, "", "Unknown", [], {}):
                 present += 1
 
-        return present / total if total > 0 else 0.0
+        occupancy = present / total if total > 0 else 0.0
+        self._relation_occupancy_cache[relation] = occupancy
+        return occupancy
 
     def estimate_relation_completeness(self, relation: str) -> float:
         """Compatibility alias for the historical, occupancy-based score API."""
@@ -245,6 +310,6 @@ class KGStore:
             return "closed"
         return "open"
 
-def get_kg_store(graph_json_path="data/rmit_graph.json") -> KGStore:
+def get_kg_store(graph_json_path="data/rmit_graph.json", completeness_path=None) -> KGStore:
     """Creates an independent store for the requested graph snapshot."""
-    return KGStore(graph_json_path)
+    return KGStore(graph_json_path, completeness_path=completeness_path)

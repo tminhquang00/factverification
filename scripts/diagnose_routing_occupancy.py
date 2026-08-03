@@ -20,6 +20,7 @@ import argparse
 import json
 import os
 import sys
+from pathlib import Path
 
 sys.path.append(os.getcwd())
 
@@ -38,7 +39,7 @@ GRAPHS = {
             "taughtBy",
             "coordinator",
             "email",
-            "offeredInSemester",
+            "offeredInTerm",
         ],
     ),
     "catalog2": (
@@ -58,12 +59,24 @@ GRAPHS = {
             "department",
             "preclusions",
             "semesters",
-            "offeredInSemester",
+            "offeredInTerm",
         ],
     ),
 }
 
 SWEEP = [0.50, 0.60, 0.70, 0.80, 0.85, 0.90, 0.95]
+
+
+def validate_output_path(output_path):
+    """Reject an output path that would overwrite any graph inspected by this diagnostic."""
+    if not output_path:
+        return
+    resolved_output = Path(output_path).resolve()
+    graph_paths = {Path(path).resolve() for path, _relations in GRAPHS.values()}
+    if resolved_output in graph_paths:
+        raise ValueError(
+            f"Refusing to overwrite configured graph with diagnostic output: {resolved_output}"
+        )
 
 
 def discover_relations(store, limit=25):
@@ -117,6 +130,7 @@ def main():
     parser.add_argument("--require", nargs="*", default=["rmit"],
                         help="Graphs that must carry an informative signal for the gate to pass.")
     args = parser.parse_args()
+    validate_output_path(args.json_path)
 
     reports = [probe(name, path, relations) for name, (path, relations) in GRAPHS.items()]
 

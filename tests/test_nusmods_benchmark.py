@@ -51,15 +51,14 @@ class GraphSchemaTests(unittest.TestCase):
                 self.assertIsInstance(entry, dict, f"{code}: prerequisite entries must be dicts")
                 self.assertIn("course_id", entry)
 
-    def test_absent_fields_are_omitted_rather_than_written_empty(self):
-        """An empty list satisfies KGStore's occupancy test and would force closed-world routing.
-
-        Writing `"prerequisites": []` on the modules that declare none would report prerequisite
-        occupancy as 1.00 instead of the measured 0.31, pinning a mostly-blank relation to CWA.
-        """
+    def test_catalog_empty_sets_are_explicit_but_other_empty_values_are_omitted(self):
+        """Explicit empty sets distinguish catalog-declared none from degraded unknown fields."""
+        catalog_sets = {"prerequisites", "preclusions", "semesters"}
         for code, record in graph().items():
+            self.assertTrue(catalog_sets <= set(record), f"{code}: missing catalog set field")
             for field, value in record.items():
-                self.assertNotIn(value, ([], "", {}), f"{code}.{field} was written empty")
+                if field not in catalog_sets:
+                    self.assertNotIn(value, ([], "", {}), f"{code}.{field} was written empty")
 
     def test_store_reads_the_ontology_fields(self):
         code = next(c for c, r in graph().items() if r.get("credits") and r.get("prerequisites"))

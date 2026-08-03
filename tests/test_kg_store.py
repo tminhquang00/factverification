@@ -40,7 +40,9 @@ class KGStoreIsolationTests(unittest.TestCase):
             store = get_kg_store(str(graph_path))
 
             self.assertEqual(store.estimate_relation_occupancy("taughtBy"), 0.5)
-            self.assertEqual(store.estimate_relation_occupancy("requiresPrerequisite"), 1.0)
+            # An explicit empty set is semantically known, but it contains no relation facts.
+            # Occupancy measures populated values; declared completeness is a separate signal.
+            self.assertEqual(store.estimate_relation_occupancy("requiresPrerequisite"), 0.0)
             self.assertEqual(
                 store.estimate_relation_completeness("taughtBy"),
                 store.estimate_relation_occupancy("taughtBy"),

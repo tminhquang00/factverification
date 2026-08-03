@@ -119,7 +119,12 @@ def run(graph, items, threshold):
         with open(path, "w", encoding="utf-8") as handle:
             json.dump(graph, handle)
         pipeline = VerificationPipeline(
-            kg_path=path, llm_client=_NoLLM(), entity_link_threshold=threshold
+            kg_path=path, llm_client=_NoLLM(), entity_link_threshold=threshold,
+            # Control items supply canonical entity IDs. Dense retrieval cannot change the
+            # mapping, and rebuilding a 30k-key embedding matrix for every shuffle dominates the
+            # runtime without changing a prediction.
+            enable_dense_linking=False,
+            routing_mode="occupancy",
         )
         predictions = evaluate(pipeline, items)
     golds = [g for g, _, _, _ in items]

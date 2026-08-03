@@ -1,0 +1,5 @@
+# Optional reproducibility dependencies for the thesis experiment suite.
+# MiniCheck is pinned to the exact source revision recorded by the runner.
+minicheck @ git+https://github.com/Liyan06/MiniCheck.git@b58b9fa69acbd1015ec970fa65dd752413a053d2
+accelerate>=1.0.0
+scipy>=1.10.0

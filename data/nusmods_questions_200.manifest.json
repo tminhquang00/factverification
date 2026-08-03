@@ -1,0 +1,19 @@
+{
+  "seed": 20260803,
+  "question_count": 200,
+  "question_type_distribution": {
+    "scalar-credit": 24,
+    "set-membership-term": 24,
+    "prerequisite-existence": 24,
+    "preclusion-existence": 25,
+    "conjunction": 25,
+    "prerequisite-exhaustiveness": 18,
+    "prerequisite-multi-hop": 18,
+    "mixed-fact-advice": 18,
+    "staffing-open-world": 24
+  },
+  "graph": "data/nusmods_graph.json",
+  "graph_sha256": "2c688ccb9437ea33a3cf8c2fe63d291fa6fcc36ec5bdb302c7e6496f95ca337d",
+  "questions_sha256": "fdfc0aebadc15091115e7d8bcdd321dbc78e868800e5daf0b87e937ea5d9c03f",
+  "script_sha256": "81d997ea48b4dfda2f92bf5d9de7af6cd347b325828259bec3c88daf0099ebcb"
+}

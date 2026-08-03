@@ -1,0 +1,12 @@
+{
+  "dataset": "rmit",
+  "authority": "researcher declaration based on RMIT handbook catalog semantics",
+  "default": "incomplete",
+  "relations": {
+    "hasCreditValue": "complete",
+    "partOfSchool": "complete",
+    "requiresPrerequisite": "complete",
+    "taughtBy": "incomplete",
+    "offeredInTerm": "incomplete"
+  }
+}

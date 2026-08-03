@@ -42,7 +42,7 @@ def main():
                              "by construction (the circularity gap). 'text' is the natural-language "
                              "question. Run both on identical rows to measure the gap.")
     parser.add_argument("--routing_mode", type=str, default=None,
-                        choices=["dynamic", "fixed_cwa", "fixed_owa"],
+                        choices=["declared", "occupancy", "dynamic", "fixed_cwa", "fixed_owa"],
                         help="World-assumption dispatch (E2 ablation arm). See eval_harness.py.")
     parser.add_argument("--cwa_threshold", type=float, default=None,
                         help="Occupancy at or above which a relation is treated as closed-world under "
@@ -229,7 +229,8 @@ def main():
         "dataset": "rmit",
         "method": args.method,
         "verify_field": args.verify_field,
-        "routing_mode": args.routing_mode,
+        "routing_mode": pipeline.routing_mode if pipeline is not None else args.routing_mode,
+        "completeness_path": (pipeline.store.completeness_path if pipeline is not None else None),
         "cwa_threshold": args.cwa_threshold,
         "model_name": llm_client.model,
         "provider": llm_client.provider,

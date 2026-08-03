@@ -236,10 +236,11 @@ def main():
                         help="Minimum bi-encoder cosine score to accept an entity link. Below it, the subject "
                              "is treated as unresolved (routing to Not-in-KG) rather than linked to a wrong entity.")
     parser.add_argument("--routing_mode", type=str, default=None,
-                        choices=["dynamic", "fixed_cwa", "fixed_owa"],
-                        help="World-assumption dispatch (E2 ablation arm). 'dynamic' routes per relation on "
+                        choices=["declared", "occupancy", "dynamic", "fixed_cwa", "fixed_owa"],
+                        help="World-assumption dispatch. 'declared' uses the per-dataset declaration; "
+                             "'occupancy' (historical alias: 'dynamic') routes per relation on "
                              "estimated occupancy against --cwa_threshold; 'fixed_cwa'/'fixed_owa' pin every "
-                             "relation to one assumption. Default: the pipeline's own default (dynamic).")
+                             "relation to one assumption. Default: the pipeline's own default (declared).")
     parser.add_argument("--cwa_threshold", type=float, default=None,
                         help="Occupancy at or above which a relation is treated as closed-world under "
                              "--routing_mode dynamic. Swept 0.50-0.95 in the E2 ablation. Ignored by the "
@@ -289,6 +290,9 @@ def main():
         smooth_calibration=args.smooth_calibration,
         withhold_unresolved_claims=args.withhold_unresolved_claims,
     )
+    declaration_path = os.path.join("data", "completeness_declarations", f"{args.dataset}.json")
+    if os.path.exists(declaration_path):
+        pipeline_kwargs["completeness_path"] = declaration_path
     if args.entity_link_threshold is not None:
         pipeline_kwargs["entity_link_threshold"] = args.entity_link_threshold
     if args.routing_mode is not None:
@@ -492,7 +496,9 @@ def main():
             "sampling": args.sample,
             "sample_seed": args.sample_seed,
             "entity_link_threshold": args.entity_link_threshold,
-            "routing_mode": args.routing_mode,
+            "routing_mode": pipeline.routing_mode if pipeline is not None else args.routing_mode,
+            "completeness_path": (pipeline.store.completeness_path
+                                  if pipeline is not None else None),
             "cwa_threshold": args.cwa_threshold,
             "accuracy": accuracy,
             "ci_95": [ci_lower, ci_upper],

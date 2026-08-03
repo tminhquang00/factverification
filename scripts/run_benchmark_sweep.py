@@ -17,6 +17,7 @@ Usage
 
 import argparse
 import datetime
+import hashlib
 import json
 import subprocess
 import sys
@@ -31,6 +32,10 @@ ENGINES = [
 ]
 
 
+def sha256(path: str | Path) -> str:
+    return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+
+
 def slug(text: str) -> str:
     return text.replace("/", "_").replace(".", "_").replace("-", "_")
 
@@ -38,27 +43,32 @@ def slug(text: str) -> str:
 def build_cells(args, outdir: Path):
     cells = []
     for model, provider in ENGINES:
+        if provider not in args.providers:
+            continue
         tag = slug(model)
 
-        cells.append({
-            "name": f"rmit__{tag}",
-            "dataset": "rmit",
-            "model": model,
-            "provider": provider,
-            "sampling": "full",
-            "argv": [
-                PYTHON, "eval_rmit.py",
-                "--limit", str(args.rmit_limit),
-                "--provider", provider,
-                "--model_name", model,
-                "--max_workers", str(args.max_workers),
-                "--seed", "42",
-                "--output_file", str(outdir / f"rmit__{tag}.json"),
-            ],
-        })
+        if "rmit" in args.datasets:
+            cells.append({
+                "name": f"rmit__{tag}",
+                "dataset": "rmit",
+                "model": model,
+                "provider": provider,
+                "sampling": "full",
+                "argv": [
+                    PYTHON, "eval_rmit.py",
+                    "--limit", str(args.rmit_limit),
+                    "--provider", provider,
+                    "--model_name", model,
+                    "--max_workers", str(args.max_workers),
+                    "--seed", "42",
+                    "--output_file", str(outdir / f"rmit__{tag}.json"),
+                ],
+            })
 
         for dataset, limit in (("factkg", args.public_limit), ("codex", args.public_limit),
                                ("nusmods", args.public_limit)):
+            if dataset not in args.datasets:
+                continue
             for sampling in args.sampling:
                 extra = []
                 # CoDEx runs against the open-domain graph, where the entity-link threshold was
@@ -102,9 +112,29 @@ def main():
     parser.add_argument("--sample_seed", type=int, default=20260725)
     parser.add_argument("--entity_link_threshold", type=float, default=0.95)
     parser.add_argument("--max_parallel", type=int, default=4)
+    parser.add_argument("--providers", nargs="+", choices=["azure", "local"],
+                        default=["azure", "local"])
+    parser.add_argument(
+        "--datasets",
+        nargs="+",
+        choices=["rmit", "factkg", "codex", "nusmods"],
+        default=["rmit", "factkg", "codex", "nusmods"],
+        help="Restrict a sweep or targeted rerun to selected datasets.",
+    )
     parser.add_argument("--skip_existing", action="store_true",
                         help="Skip cells whose result JSON already exists, so an interrupted sweep resumes.")
     args = parser.parse_args()
+
+    # Capture the implementation identity before any long-running subprocesses.
+    # This remains truthful even if files are edited while a sweep is still running.
+    code_identity = {
+        "captured_utc": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        "run_benchmark_sweep_sha256": sha256(__file__),
+        "eval_harness_sha256": sha256("eval_harness.py"),
+        "eval_rmit_sha256": sha256("eval_rmit.py"),
+        "verification_pipeline_sha256": sha256("verification_pipeline.py"),
+        "kg_store_sha256": sha256("kg_store.py"),
+    }
 
     outdir = Path(args.outdir) / args.run_id
     outdir.mkdir(parents=True, exist_ok=True)
@@ -151,6 +181,7 @@ def main():
                 "started_utc": job["started"],
                 "finished_utc": finished,
                 "log": str(job["log"]),
+                "code_identity": code_identity,
             })
         if running:
             time.sleep(2)

@@ -1,0 +1,6 @@
+{
+  "dataset": "factkg",
+  "authority": "benchmark evaluation closure; not a claim of real-world Wikidata completeness",
+  "default": "complete",
+  "relations": {}
+}

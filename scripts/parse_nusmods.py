@@ -29,11 +29,10 @@ relation-normalization fallback:
 
 Two conventions matter for the validity of anything measured on this graph:
 
-1. **Absent fields are omitted, never defaulted.** `KGStore.estimate_relation_occupancy` counts a
-   relation as present whenever the key exists and is not `""`/`None`/`"Unknown"` — an empty list
-   satisfies that test. Writing `"prerequisites": []` for the 60% of modules that declare none
-   would report prerequisite occupancy as 1.00 and pin the relation to closed-world semantics on a
-   field the catalog mostly leaves blank.
+1. **Catalog-empty sets are explicit.** The module record is treated as authoritative for catalog
+   prerequisites, preclusions, and offered semesters. A missing source field compiles to an empty
+   list, distinguishing "the catalog declares none" from a relation field removed by a degradation
+   experiment. Occupancy still counts only non-empty values; declared completeness is independent.
 
 2. **`prerequisites` holds every module named in the prerequisite rule, alternatives included.**
    The API exposes the rule as free text ("must have completed 1 of CS1010/CS1010E/CS1101S"), not
@@ -47,10 +46,12 @@ Usage
 """
 
 import argparse
+import hashlib
 import json
 import logging
 import os
 import re
+from datetime import datetime, timezone
 from typing import Any, Dict, List
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
@@ -152,6 +153,7 @@ def parse_all_nusmods_years(directory: str = "data/nusmods") -> Dict[str, Any]:
 
             prerequisite_text = _clean(item.get("prerequisite"))
             prerequisites = extract_module_codes(prerequisite_text, exclude=code)
+            record["prerequisites"] = []
             if prerequisites:
                 record["prerequisite_text"] = prerequisite_text
                 # Stage 4 reads prerequisites through KGStore.get_prerequisites, which expects
@@ -160,9 +162,9 @@ def parse_all_nusmods_years(directory: str = "data/nusmods") -> Dict[str, Any]:
 
             preclusion_text = _clean(item.get("preclusion"))
             preclusions = extract_module_codes(preclusion_text, exclude=code)
+            record["preclusions"] = preclusions
             if preclusions:
                 record["preclusion_text"] = preclusion_text
-                record["preclusions"] = preclusions
 
             corequisites = extract_module_codes(_clean(item.get("corequisite")), exclude=code)
             if corequisites:
@@ -173,8 +175,7 @@ def parse_all_nusmods_years(directory: str = "data/nusmods") -> Dict[str, Any]:
                 for entry in item.get("semesterData") or []
                 if isinstance(entry, dict) and entry.get("semester") is not None
             })
-            if semesters:
-                record["semesters"] = semesters
+            record["semesters"] = semesters
 
             graph[code] = record
             kept += 1
@@ -253,6 +254,47 @@ def build_turtle_graph(graph: Dict[str, Any], output_path: str):
     logger.info(f"Saved RDF Turtle graph to {output_path}")
 
 
+def build_snapshot_manifest(input_dir: str, graph_path: str, output_path: str, fetch_date=None):
+    """Records hashes for the exact raw snapshot inputs and compiled graph."""
+    files = []
+    for filename in sorted(os.listdir(input_dir)):
+        if not filename.endswith(("moduleInformation.json", "moduleList.json")):
+            continue
+        path = os.path.join(input_dir, filename)
+        digest = hashlib.sha256()
+        with open(path, "rb") as handle:
+            for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+                digest.update(chunk)
+        files.append({
+            "path": path.replace("\\", "/"),
+            "sha256": digest.hexdigest(),
+            "size_bytes": os.path.getsize(path),
+        })
+
+    graph_digest = hashlib.sha256()
+    with open(graph_path, "rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            graph_digest.update(chunk)
+    observed_fetch_date = fetch_date or datetime.fromtimestamp(
+        max(os.path.getmtime(item["path"]) for item in files), timezone.utc
+    ).date().isoformat()
+    manifest = {
+        "dataset": "nusmods",
+        "source": "NUSMods v2 API",
+        "academic_years": sorted({item["path"].split("/")[-1].split("_")[0] for item in files}),
+        "fetch_date": observed_fetch_date,
+        "snapshot_id": f"nusmods-ay2020-2026-{graph_digest.hexdigest()[:12]}",
+        "compiled_graph": graph_path.replace("\\", "/"),
+        "compiled_graph_sha256": graph_digest.hexdigest(),
+        "raw_files": files,
+    }
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    with open(output_path, "w", encoding="utf-8") as handle:
+        json.dump(manifest, handle, indent=2)
+    logger.info("Saved snapshot manifest to %s", output_path)
+    return manifest
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -260,6 +302,9 @@ def main():
     parser.add_argument("--graph_out", default="data/nusmods_graph.json")
     parser.add_argument("--ttl_out", default="data/nusmods_graph.ttl")
     parser.add_argument("--profile_out", default="data/completeness_profiles/nusmods.json")
+    parser.add_argument("--manifest_out", default="data/nusmods_snapshot.manifest.json")
+    parser.add_argument("--fetch_date", default=None,
+                        help="YYYY-MM-DD source fetch date. Defaults to the newest raw-file mtime.")
     args = parser.parse_args()
 
     graph = parse_all_nusmods_years(args.input_dir)
@@ -271,6 +316,7 @@ def main():
 
     build_turtle_graph(graph, args.ttl_out)
     build_completeness_profile(graph, args.profile_out)
+    build_snapshot_manifest(args.input_dir, args.graph_out, args.manifest_out, args.fetch_date)
     print("\nRun scripts/build_nusmods_benchmark.py next to regenerate data/nusmods_test.jsonl.")
 
 

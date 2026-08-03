@@ -19,6 +19,7 @@ ONTOLOGY_RELATIONS = {
     "partOfSchool",
     "taughtBy",
     "offeredInTerm",
+    "preclusions",
     "coordinator",
     "email",
 }
@@ -80,7 +81,7 @@ class VerificationPipeline:
     - Stage 4: Semantic dispatch logic (CWA vs OWA routing) evaluating against KGStore.
     - Stage 5 / Engine: Optional legacy heuristic abstention for experimental compatibility.
     """
-    def __init__(self, kg_path="data/rmit_graph.json", llm_client=None, oracle_linking=False, decontextualize=False, smooth_calibration=False, routing_mode="dynamic", cwa_threshold=0.85, abstention_threshold=None, entity_link_threshold=0.35, withhold_unresolved_claims=False):
+    def __init__(self, kg_path="data/rmit_graph.json", llm_client=None, oracle_linking=False, decontextualize=False, smooth_calibration=False, routing_mode="declared", cwa_threshold=0.85, abstention_threshold=None, entity_link_threshold=0.35, withhold_unresolved_claims=False, completeness_path=None, enable_dense_linking=True):
         """Initializes the verification pipeline, loads graph store, and builds lookup index.
 
         `entity_link_threshold` is the minimum bi-encoder cosine score at which a surface form is
@@ -89,17 +90,19 @@ class VerificationPipeline:
         entity. The 0.35 default preserves historical behaviour; open-domain graphs need it far
         higher (see docs/benchmarks/comprehensive_report_20260725.md).
         """
-        if routing_mode not in {"dynamic", "fixed_cwa", "fixed_owa"}:
+        if routing_mode not in {"declared", "occupancy", "dynamic", "fixed_cwa", "fixed_owa"}:
             raise ValueError(f"Unsupported routing mode: {routing_mode}")
         if not 0.0 <= entity_link_threshold <= 1.0:
             raise ValueError("entity_link_threshold must be between 0 and 1.")
-        self.store = get_kg_store(kg_path)
+        self.store = get_kg_store(kg_path, completeness_path=completeness_path)
         self.llm_client = llm_client or get_llm_client()
-        self.bi_encoder = get_bi_encoder()
+        self.enable_dense_linking = enable_dense_linking
+        self.bi_encoder = get_bi_encoder() if enable_dense_linking else None
         self.oracle_linking = oracle_linking
         self.decontextualize = decontextualize
         self.smooth_calibration = smooth_calibration
         self.routing_mode = routing_mode
+        self._missing_declaration_warned = set()
         self.cwa_threshold = cwa_threshold
         self.entity_link_threshold = entity_link_threshold
         # When True, a claim whose subject could not be linked is withheld from the verdict vote
@@ -127,6 +130,7 @@ class VerificationPipeline:
         
         for code, course in self.store.courses.items():
             self.entity_index[code] = code
+            self.entity_index[self.normalize_text(code)] = code
             self.entity_keys_list.append(code)
             self.entity_codes_list.append(code)
             
@@ -148,7 +152,7 @@ class VerificationPipeline:
                 self.entity_codes_list.append(code)
 
         # Build embedding matrix for bi-encoder cosine search
-        if self.entity_keys_list:
+        if self.entity_keys_list and self.enable_dense_linking:
             self.bi_encoder.fit(self.entity_keys_list)
             self.entity_embeddings = self.bi_encoder.encode(self.entity_keys_list)
         else:
@@ -240,19 +244,26 @@ class VerificationPipeline:
             return claims
 
         system_prompt = custom_system_prompt or (
-            "You are a factual claim extraction assistant. Decompose the text into atomic, schema-guided claims. "
+            "You are a factual claim extraction and decontextualization assistant. Extract only "
+            "externally verifiable factual assertions made by the answer. Ignore advice, recommendations, "
+            "questions, hedges that make no assertion, and statements merely saying that information is "
+            "unavailable. Make every retained claim self-contained by restoring the course/module subject "
+            "and resolving pronouns without changing meaning. Decompose conjunctions into separate claims. "
             "Each claim must map to one of these valid relation classes:\n"
             "- requiresPrerequisite: course requires another course as prerequisite (or requires no/none prerequisites).\n"
             "- hasCreditValue: course is worth a number of credit points.\n"
             "- partOfSchool: course belongs to a specific school (e.g. Science, Business).\n"
             "- taughtBy: course has a coordinator or coordinator email, or a coordinator exists in the catalogue with a name and email (map subject to coordinator name and object to email).\n"
             "- offeredInTerm: course is offered in a specific semester.\n\n"
+            "- preclusions: course precludes another course (or has no/none preclusions).\n\n"
             "Guidelines for Multi-Hop statements:\n"
             "If a statement mentions a multi-hop prerequisite relationship (e.g. 'the prerequisite course of A requires B'), decompose it into two separate claims:\n"
             "1. A requires C (where C is the intermediate course ID or title mentioned in the context)\n"
             "2. C requires B\n\n"
             "Return a JSON object with a single key 'claims' containing a list of claims. "
-            "Each claim must have: 'subject', 'relation', 'object', 'claim_type'. "
+            "Each claim must have: 'subject', 'relation', 'object', 'claim_type', and 'verifiable'. "
+            "Set 'verifiable' to true for retained factual claims. Return an empty claims list when the "
+            "answer makes no verifiable catalog assertion. "
             "Set 'claim_type' to the relation name if it fits. If the claim does not fit any of the relations, set 'claim_type' to 'unclassified'."
         )
         
@@ -270,11 +281,13 @@ class VerificationPipeline:
         if len(self.store.courses) < 50:
             return decomposed(claims1, 1.0)
             
+        run2_failed = False
         try:
             run2 = self.llm_client.generate_json(prompt, system_prompt=system_prompt, temperature=0.2)
             claims2 = run2.get("claims", [])
         except Exception:
             claims2 = []
+            run2_failed = True
             
         consistent_claims = []
         for c1 in claims1:
@@ -296,7 +309,7 @@ class VerificationPipeline:
                         c1["relation"] = rel2
                     break
                     
-            if match_found or not claims2: # If run 2 failed, fallback to run 1
+            if match_found or run2_failed: # Preserve run 1 only when the second API call failed.
                 consistent_claims.append(c1)
                 
         # Calculate agreement rate
@@ -314,8 +327,80 @@ class VerificationPipeline:
 
         subject_raw = claim.get("subject")
         relation = claim.get("relation")
+        relation_surface = str(relation or "")
         object_raw = claim.get("object")
         claim_type = claim.get("claim_type", "")
+
+        # Smaller/open models sometimes return a natural-language predicate even when
+        # the prompt requests one of the institutional ontology labels (for example,
+        # "is worth 4 modular credits" or "is offered in Semester 2"). Prefer a
+        # canonical claim_type when present, then apply conservative schema-gated aliases.
+        # The gate prevents these course-specific aliases from hijacking open-domain CoDEx
+        # predicates such as "net worth" or "offered by".
+        if relation not in ONTOLOGY_RELATIONS and claim_type in ONTOLOGY_RELATIONS:
+            relation = claim_type
+        institutional_relations = {
+            "requiresPrerequisite", "hasCreditValue", "partOfSchool",
+            "taughtBy", "offeredInTerm", "preclusions",
+        }
+        institutional_schema = bool(
+            institutional_relations
+            & set(getattr(self.store, "completeness_declarations", {}) or {})
+        )
+        if institutional_schema and relation not in ONTOLOGY_RELATIONS:
+            predicate_text = f"{relation or ''} {claim_type or ''} {object_raw or ''}".lower()
+            if "preclud" in predicate_text:
+                relation = "preclusions"
+            elif "prerequisite" in predicate_text or "prereq" in predicate_text:
+                relation = "requiresPrerequisite"
+            elif (
+                "credit" in predicate_text
+                or "modular credit" in predicate_text
+                or "credit point" in predicate_text
+            ):
+                relation = "hasCreditValue"
+            elif (
+                any(word in predicate_text for word in ("semester", "term"))
+                and any(word in predicate_text for word in ("offered", "available", "scheduled"))
+            ):
+                relation = "offeredInTerm"
+            elif any(word in predicate_text for word in ("school", "faculty", "college", "department")):
+                relation = "partOfSchool"
+            elif any(word in predicate_text for word in ("coordinator", "taught by", "instructor", "lecturer")):
+                relation = "taughtBy"
+            elif (
+                str(relation or "").strip().lower().startswith("requires")
+                and re.search(r"\b[A-Z]{1,4}\d{4}[A-Z]{0,3}\b", str(object_raw).upper())
+            ):
+                relation = "requiresPrerequisite"
+
+        # Some decomposers place the value inside a natural-language predicate and
+        # leave the object null ("is offered in Term 2", object=None). Once the
+        # predicate is canonical, recover only schema-shaped values conservatively.
+        if object_raw in (None, ""):
+            if relation == "offeredInTerm":
+                match = re.search(r"\b(?:semester|term)\s*([1-4])\b", relation_surface, re.I)
+                if match:
+                    object_raw = match.group(1)
+            elif relation == "hasCreditValue":
+                match = re.search(
+                    r"\b(\d+(?:\.\d+)?)\s*(?:modular\s+)?credits?\b",
+                    relation_surface,
+                    re.I,
+                )
+                if match:
+                    number = float(match.group(1))
+                    object_raw = int(number) if number.is_integer() else number
+            elif relation in {"requiresPrerequisite", "preclusions"}:
+                if re.search(r"\bno\s+(?:prerequisites?|preclusions?)\b", relation_surface, re.I):
+                    object_raw = "none"
+                else:
+                    match = re.search(
+                        r"\b[A-Z]{1,4}\d{4}[A-Z]{0,3}\b",
+                        relation_surface.upper(),
+                    )
+                    if match:
+                        object_raw = match.group(0)
 
         # Oracle linking override for Experiment 1
         if getattr(self, "oracle_linking", False):
@@ -408,7 +493,7 @@ class VerificationPipeline:
         # values are surface labels, so substituting the resolved entity *key* here makes stage 4
         # compare an id against a label and report a value mismatch for every true claim.
         # Resolve for the confidence signal, then project back to the label the graph holds.
-        if relation not in ["requiresPrerequisite", "hasCreditValue", "partOfSchool", "taughtBy", "offeredInTerm"]:
+        if relation not in ["requiresPrerequisite", "hasCreditValue", "partOfSchool", "taughtBy", "offeredInTerm", "preclusions"]:
             object_code, object_score = self.link_entity(object_raw, include_score=True)
             if object_code:
                 entity_score = min(entity_score, object_score)
@@ -421,6 +506,28 @@ class VerificationPipeline:
             # Check for negation words in object_raw before calling link_entity
             if str(object_raw).lower().strip() in ["none", "null", "no prerequisites", "no prerequisite", "empty", "no", "none.", "unknown course", "no courses", "n/a"]:
                 return mapped(subject_code, relation, "none", entity_score)
+            # Catalog edges may legitimately point to a historical or external module
+            # that has no entity record in the current snapshot. Preserve a syntactically
+            # canonical code so Stage 4 can check the edge itself; requiring the object to
+            # exist as a node incorrectly turns true edges into object_unresolved.
+            code_match = re.search(r"\b[A-Z]{1,4}\d{4}[A-Z]{0,3}\b", str(object_raw).upper())
+            if code_match:
+                return mapped(subject_code, relation, code_match.group(0), entity_score)
+            object_code, object_score = self.link_entity(object_raw, include_score=True)
+            entity_score = min(entity_score, object_score)
+            if not object_code:
+                return mapped(subject_code, "object_unresolved", object_raw, entity_score)
+            return mapped(subject_code, relation, object_code, entity_score)
+
+        elif relation == "preclusions":
+            if str(object_raw).lower().strip() in [
+                "none", "null", "no preclusions", "no preclusion", "empty", "no", "none.",
+                "unknown course", "no courses", "n/a",
+            ]:
+                return mapped(subject_code, relation, "none", entity_score)
+            code_match = re.search(r"\b[A-Z]{1,4}\d{4}[A-Z]{0,3}\b", str(object_raw).upper())
+            if code_match:
+                return mapped(subject_code, relation, code_match.group(0), entity_score)
             object_code, object_score = self.link_entity(object_raw, include_score=True)
             entity_score = min(entity_score, object_score)
             if not object_code:
@@ -432,13 +539,20 @@ class VerificationPipeline:
             match = re.search(r"\b\d+\b", str(object_raw))
             if match:
                 return mapped(subject_code, relation, int(match.group(0)), entity_score)
-            return mapped(subject_code, relation, object_raw, entity_score)
+            return mapped(subject_code, "object_unresolved", object_raw, entity_score)
             
         elif relation == "partOfSchool":
+            if object_raw in (None, ""):
+                return mapped(subject_code, "object_unresolved", object_raw, entity_score)
             return mapped(subject_code, relation, str(object_raw).strip(), entity_score)
             
         elif relation == "taughtBy":
+            if object_raw in (None, ""):
+                return mapped(subject_code, "object_unresolved", object_raw, entity_score)
             return mapped(subject_code, relation, str(object_raw).strip(), entity_score)
+
+        elif relation == "offeredInTerm" and object_raw in (None, ""):
+            return mapped(subject_code, "object_unresolved", object_raw, entity_score)
             
         return mapped(subject_code, relation, object_raw, entity_score)
 
@@ -448,6 +562,17 @@ class VerificationPipeline:
             return "closed"
         if self.routing_mode == "fixed_owa":
             return "open"
+        if self.routing_mode == "declared":
+            declared = self.store.get_declared_world_assumption(relation)
+            if declared is not None:
+                return declared
+            warned = getattr(self, "_missing_declaration_warned", set())
+            if relation not in warned:
+                logger.warning(
+                    "No completeness declaration for relation %s; falling back to occupancy.", relation
+                )
+                warned.add(relation)
+                self._missing_declaration_warned = warned
         relation_score = self.store.estimate_relation_occupancy(relation)
         return "closed" if relation_score >= self.cwa_threshold else "open"
 
@@ -531,6 +656,10 @@ class VerificationPipeline:
         course = self.store.get_course(subject_code)
 
         if relation == "requiresPrerequisite":
+            if "prerequisites" not in course:
+                return self._absent_value_verdict(
+                    subject_code, relation, object_val, world_assumption
+                )
             # Check for negation: "does not require any prerequisites" or object is None/null/none
             is_negated = False
             if object_val is None:
@@ -598,7 +727,17 @@ class VerificationPipeline:
                 # back a default of 12 here, so this branch never ran and any "12 credits" claim
                 # was Supported against an entity that had no credit data at all.
                 return self._absent_value_verdict(subject_code, relation, object_val, world_assumption)
-            if actual_credits == object_val:
+            # JSONL fixtures and saved experimental triples encode scalar objects as
+            # strings, while Stage 3 canonicalizes generated answers to integers.
+            # Credit equality is semantic, so representation type must not change the
+            # verdict (for example, 12 and "12" are the same catalog value).
+            try:
+                credits_match = float(actual_credits) == float(object_val)
+            except (TypeError, ValueError):
+                credits_match = self.normalize_text(str(actual_credits)) == self.normalize_text(
+                    str(object_val)
+                )
+            if credits_match:
                 return {
                     "verdict": "Supported",
                     "reason": f"Fact verified. Course {subject_code} has {object_val} credit points.",
@@ -658,6 +797,77 @@ class VerificationPipeline:
                     "reason": f"Coordinator {object_val} not matched against stored coordinator: {coord['name']}.",
                     "evidence": f"Actual coordinator: {coord['name']}"
                 }
+
+        elif relation == "offeredInTerm":
+            actual_semesters = self.store.get_semesters(subject_code)
+            claimed = str(object_val).strip().lower()
+            match = re.search(r"\b([1-4])\b", claimed)
+            claimed_semester = match.group(1) if match else claimed.replace("semester", "").strip()
+            if not actual_semesters:
+                return self._absent_value_verdict(
+                    subject_code, relation, object_val, world_assumption
+                )
+            if claimed_semester in actual_semesters:
+                return {
+                    "verdict": "Supported",
+                    "reason": f"Fact verified. Course {subject_code} is offered in semester {claimed_semester}.",
+                    "evidence": f"({subject_code}, offeredInTerm, {claimed_semester})",
+                }
+            if world_assumption == "closed":
+                return {
+                    "verdict": "Contradicted",
+                    "reason": (f"Term mismatch. Claimed semester {claimed_semester}, but recorded "
+                               f"semesters are {actual_semesters}."),
+                    "evidence": f"Actual semesters: {actual_semesters}",
+                }
+            return {
+                "verdict": "Not-in-KG",
+                "reason": (f"Semester {claimed_semester} is not recorded for {subject_code}, and "
+                           "offering terms are treated as incomplete."),
+                "evidence": f"Actual semesters: {actual_semesters}",
+            }
+
+        elif relation == "preclusions":
+            if "preclusions" not in course:
+                return self._absent_value_verdict(
+                    subject_code, relation, object_val, world_assumption
+                )
+            actual_preclusions = [
+                str(item.get("course_id") if isinstance(item, dict) else item)
+                for item in course.get("preclusions", [])
+            ]
+            is_negated = object_val is None or str(object_val).lower().strip() in {
+                "none", "null", "no preclusions", "no preclusion", "empty", "no", "n/a",
+            }
+            if is_negated:
+                if not actual_preclusions:
+                    return {
+                        "verdict": "Supported",
+                        "reason": f"Fact verified. Course {subject_code} has no listed preclusions.",
+                        "evidence": f"({subject_code}, preclusions, None)",
+                    }
+                return {
+                    "verdict": "Contradicted",
+                    "reason": f"Course {subject_code} has listed preclusions: {actual_preclusions}.",
+                    "evidence": f"Actual preclusions: {actual_preclusions}",
+                }
+            if str(object_val) in actual_preclusions:
+                return {
+                    "verdict": "Supported",
+                    "reason": f"Fact verified. Course {subject_code} precludes {object_val}.",
+                    "evidence": f"({subject_code}, preclusions, {object_val})",
+                }
+            if world_assumption == "closed":
+                return {
+                    "verdict": "Contradicted",
+                    "reason": f"Course {subject_code} does not list preclusion {object_val}.",
+                    "evidence": f"Actual preclusions: {actual_preclusions}",
+                }
+            return {
+                "verdict": "Not-in-KG",
+                "reason": f"Preclusion {object_val} is not recorded for {subject_code}.",
+                "evidence": f"Actual preclusions: {actual_preclusions}",
+            }
 
         elif relation in course or relation in ["capital", "birthPlace", "founded", "father", "mother", "office", "type"]:
             actual_val = course.get(relation)
@@ -929,8 +1139,11 @@ class VerificationPipeline:
         if decomp_agreement is None:
             decomp_agreement = getattr(self, "last_decomp_agreement", 1.0)
         
-        # Bypass entity resolution discount for coordinator existence lookups (where subj_code is raw string)
-        if subj_code and not re.match(r"^\d{6}$", str(subj_code)):
+        # Coordinator-existence claims can use a raw person name as the subject. Do not generalize
+        # that exception to alphanumeric course codes: doing so erased the NIL/linking signal for
+        # every NUSMods entity.
+        if (relation == "taughtBy" and subj_code
+                and not self.store.has_course(str(subj_code))):
             entity_score = 1.0
             
         raw_conf = float(base_conf * entity_score * decomp_agreement)

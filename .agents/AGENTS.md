@@ -12,17 +12,17 @@ Implements a 4-stage **tri-state** claim verification pipeline that checks natur
 
 1. **Claim decomposition** — draft LLM answers are broken into atomic `(Subject, Relation, Object)` tuples.
 2. **Entity/relation linking** — resolved via **L0** (gold IDs), **L1** (bi-encoder), or **L2** (token heuristics).
-3. **Graph verification** — triples checked against offline background completeness profiles `C(R)` (per-relation density), not a fixed open/closed-world assumption.
-4. **Selective abstention** — final verdict is one of `Supported` / `Contradicted` / `Not-in-KG` (tri-state, not binary), calibrated via an NLI margin tie-breaker.
+3. **Graph verification** — triples checked against explicit per-relation completeness declarations; live relation occupancy is retained as an ablation.
+4. **Tri-state output** — final verdict is one of `Supported` / `Contradicted` / `Not-in-KG` (plus `Out-of-scope`). Confidence remains heuristic and uncalibrated; no NLI component exists.
 
 ## Key files
 
-- [verification_pipeline.py](../../verification_pipeline.py) — core 4-stage pipeline.
-- [kg_store.py](../../kg_store.py) — thread-safe local KG/catalog storage, relation density estimation.
-- [adapters/](../../adapters/) — per-dataset loaders/normalizers (`factkg_adapter.py`, `codex_adapter.py`, `metaqa_adapter.py`, `fever_adapter.py`, `catalog2_adapter.py`, `kg_adapter.py`).
-- [eval_harness.py](../../eval_harness.py), [eval_rmit.py](../../eval_rmit.py) — evaluation entry points.
-- [scripts/](../../scripts/) — diagnostics, staged experiments (E0–E9), completeness-profile and tri-state benchmark generation.
-- [docs/](../../docs/) — start at [docs/README.md](../../docs/README.md); architecture in `docs/architecture/`, results in `docs/benchmarks/`.
+- [verification_pipeline.py](../verification_pipeline.py) — core 4-stage pipeline.
+- [kg_store.py](../kg_store.py) — thread-safe local KG/catalog storage, relation density estimation.
+- [adapters/](../adapters/) — per-dataset loaders/normalizers (`factkg_adapter.py`, `codex_adapter.py`, `metaqa_adapter.py`, `fever_adapter.py`, `catalog2_adapter.py`, `kg_adapter.py`).
+- [eval_harness.py](../eval_harness.py), [eval_rmit.py](../eval_rmit.py) — evaluation entry points.
+- [scripts/](../scripts/) — diagnostics, staged experiments (E0–E9), completeness-profile and tri-state benchmark generation.
+- [docs/](../docs/) — start at [docs/README.md](../docs/README.md); architecture in `docs/architecture/`, results in `docs/benchmarks/`.
 
 ## Benchmarks in play
 
@@ -30,4 +30,4 @@ Institutional catalogs (**RMIT Handbook**, **Catalog2**) plus public KG benchmar
 
 ## Related
 
-For coding-style, evaluation-protocol, and execution rules (e.g. venv usage, confidence-interval requirements, forced-decision label normalization), see [.agents/AGENTS.md](../../.agents/AGENTS.md) — those always apply and are not repeated here.
+For coding-style, evaluation-protocol, and execution rules (e.g. venv usage, confidence-interval requirements, forced-decision label normalization), see [.agents/AGENTS.md](AGENTS.md) — those always apply and are not repeated here.

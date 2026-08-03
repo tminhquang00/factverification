@@ -1,0 +1,16 @@
+{
+  "dataset": "nusmods",
+  "snapshot_manifest": "data/nusmods_snapshot.manifest.json",
+  "authority": "researcher declaration based on NUSMods catalog semantics",
+  "default": "incomplete",
+  "relations": {
+    "hasCreditValue": "complete",
+    "partOfSchool": "complete",
+    "requiresPrerequisite": "complete",
+    "department": "complete",
+    "preclusions": "complete",
+    "offeredInTerm": "complete",
+    "semesters": "complete",
+    "taughtBy": "incomplete"
+  }
+}
